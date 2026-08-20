@@ -12,10 +12,9 @@ buildGoModule {
       !(lib.elem base [ ".git" ".jj" ".direnv" "result" ".beans" "openspec" "docs" "testdata-gen" ]);
   };
 
-  # No external Go modules yet. The first change that adds a dependency MUST
-  # replace this with the real vendor hash — a null hash fails loudly, which is
-  # the intended fail-fast.
-  vendorHash = null;
+  # Vendor hash for the Go module set. Update with the fake-hash-then-read dance
+  # whenever go.mod dependencies change.
+  vendorHash = "sha256-g+yaVIx4jxpAQ/+WrGKxhVeliYx7nLQe/zsGpxV4Fn4=";
 
   subPackages = [ "cmd/linny-mcp" "cmd/lindexer" ];
 

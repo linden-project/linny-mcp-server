@@ -48,21 +48,23 @@
           # in its checkPhase (doCheck = true in nix/package.nix).
           gotest = pkgs.linny-mcp;
 
-          lint = pkgs.runCommand "linny-mcp-lint"
-            {
-              nativeBuildInputs = [ pkgs.go pkgs.golangci-lint ];
-            }
-            ''
-              cp -r ${self.packages.${system}.default.src} src
-              chmod -R u+w src
-              cd src
-              export HOME="$TMPDIR"
-              export GOCACHE="$TMPDIR/go-cache"
+          # `lint` overrides the package derivation so golangci-lint runs with the
+          # vendored module set already present (offline, no proxy fetch).
+          lint = pkgs.linny-mcp.overrideAttrs (old: {
+            pname = "linny-mcp-lint";
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.golangci-lint ];
+            doCheck = false;
+            buildPhase = ''
+              runHook preBuild
               export GOLANGCI_LINT_CACHE="$TMPDIR/golangci-cache"
-              export GOFLAGS="-mod=mod"
               golangci-lint run ./...
-              touch "$out"
+              runHook postBuild
             '';
+            installPhase = ''
+              mkdir -p "$out"
+              touch "$out/lint-ok"
+            '';
+          });
         });
 
       # Fleshed out in milestone 06 (nixos-module-hardened). Declared here so the
