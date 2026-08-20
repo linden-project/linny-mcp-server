@@ -11,13 +11,16 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/linden-project/linny-mcp-server/internal/auth"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/config"
 	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
+	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/mcp"
+	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
 
 const usage = `linny-mcp - MCP server for a Linny notebook
@@ -151,8 +154,23 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 
 	guard := gitsafe.NewGuard(nb.CorpusPath, cfg.ReadOnly)
 	srv := &mcp.Server{
-		Auth:   auth.NewStaticTokenAuthenticator(records),
-		Health: healthFromGuard(guard),
+		Auth:     auth.NewStaticTokenAuthenticator(records),
+		Health:   healthFromGuard(guard),
+		Redactor: redact.New(),
+	}
+	// Attach the index store (read tools) when a state dir is configured. The
+	// store is created if absent (an empty store simply returns no results until
+	// the indexer runs); deleting it and rebuilding is a valid recovery step.
+	if nb.StateDir != "" {
+		store, err := index.OpenStore(filepath.Join(nb.StateDir, "index.sqlite"))
+		if err != nil {
+			fmt.Fprintf(stderr, "linny-mcp: opening index store: %v\n", err)
+			return 1
+		}
+		defer func() { _ = store.Close() }()
+		srv.Store = store
+	} else {
+		fmt.Fprintln(stderr, "linny-mcp: no state dir configured; MCP read tools are unavailable")
 	}
 	addr := net.JoinHostPort(cfg.ListenAddress, fmt.Sprintf("%d", cfg.Port))
 	if st := guard.State(); !st.Clean {

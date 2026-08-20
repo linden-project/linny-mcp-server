@@ -64,6 +64,19 @@ func (s *Store) ListTaxonomiesScoped(readableSubquery string, subArgs []any) ([]
 		 ORDER BY m.taxonomy`, subArgs...)
 }
 
+// TermsForTaxonomyScoped returns only the terms of a taxonomy that have at least
+// one readable document, so a term made up solely of denied documents is not
+// leaked.
+func (s *Store) TermsForTaxonomyScoped(taxonomy, readableSubquery string, subArgs []any) ([]string, error) {
+	args := make([]any, 0, len(subArgs)+1)
+	args = append(args, taxonomy)
+	args = append(args, subArgs...)
+	return s.queryStrings(
+		`SELECT DISTINCT term FROM membership
+		 WHERE taxonomy = ? AND filename IN (`+readableSubquery+`)
+		 ORDER BY term`, args...)
+}
+
 // GetDocScoped returns a document only if the scope permits reading it. A denied
 // document yields ok=false — identical to a document that does not exist.
 func (s *Store) GetDocScoped(filename, readableSubquery string, subArgs []any) (Doc, bool, error) {
