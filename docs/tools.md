@@ -63,7 +63,7 @@ Recorded so names are reserved and stable when implemented:
 - `related(doc)` — documents related by shared taxonomy membership.
 - `due_this_week()` — documents with a due date in the current week.
 - `open_items(project)` — open task-list items for a project.
-- Operational: `verify_index()` (diff our JSON vs Hugo).
+(Note: index drift-check ships as the `lindexer verify` CLI; a `verify_index` MCP tool is a future addition.)
 - `delete` and bulk-retag — require out-of-band confirmation (policy already flags them).
 
 ## Change log

@@ -46,3 +46,33 @@ func TestSearchRequiresStateDir(t *testing.T) {
 		t.Fatalf("search without --state-dir exit=%d, want 2", code)
 	}
 }
+
+func TestVerifyCLIMatches(t *testing.T) {
+	root := t.TempDir()
+	if err := corpus.Generate(root, corpus.Options{Seed: 6, Count: 15, EnableEdgeCases: true}); err != nil {
+		t.Fatal(err)
+	}
+	ref := filepath.Join(root, "reference-index")
+
+	var out, errOut bytes.Buffer
+	// Emit a reference index from the same corpus.
+	if code := Run([]string{"lindexer", "build", "--corpus", root, "--index", ref}, &out, &errOut); code != 0 {
+		t.Fatalf("build ref exit=%d: %s", code, errOut.String())
+	}
+	out.Reset()
+	errOut.Reset()
+	// verify our freshly-built index against that reference => no drift.
+	if code := Run([]string{"lindexer", "verify", "--corpus", root, "--reference", ref}, &out, &errOut); code != 0 {
+		t.Fatalf("verify exit=%d, want 0; stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "no discrepancies") {
+		t.Fatalf("verify output = %q", out.String())
+	}
+}
+
+func TestVerifyCLIRequiresReference(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := Run([]string{"lindexer", "verify", "--corpus", "."}, &out, &errOut); code != 2 {
+		t.Fatalf("verify without --reference exit=%d, want 2", code)
+	}
+}

@@ -28,11 +28,11 @@ Usage:
 Commands:
   build       Full rebuild of the index from a corpus
   search      Full-text search a persisted index store
+  verify      Diff our JSON index against a reference (Hugo) index tree
   watch       Incrementally update the index via fsnotify (not yet implemented)
-  verify      Diff our JSON index against Hugo's output (not yet implemented)
   version     Print the version and exit
 
-Run 'lindexer build -h' or 'lindexer search -h' for flags.
+Run 'lindexer <command> -h' for a command's flags.
 `
 
 // Run executes the CLI and returns a process exit code.
@@ -49,7 +49,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return buildCmd(args[2:], stdout, stderr)
 	case "search":
 		return searchCmd(args[2:], stdout, stderr)
-	case "watch", "verify":
+	case "verify":
+		return verifyCmd(args[2:], stdout, stderr)
+	case "watch":
 		fmt.Fprintf(stderr, "lindexer: %s is not implemented yet\n", args[1])
 		return 1
 	case "help", "--help", "-h":
@@ -156,4 +158,49 @@ func searchCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "%s\t%s\n    %s\n", h.Filename, title, h.Snippet)
 	}
 	return 0
+}
+
+func verifyCmd(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	corpus := fs.String("corpus", ".", "corpus root")
+	reference := fs.String("reference", "", "reference index directory to diff against (e.g. Hugo's lindenIndex) (required)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *reference == "" {
+		fmt.Fprintln(stderr, "lindexer: verify requires --reference (a reference index directory)")
+		return 2
+	}
+
+	g, _, err := index.Build(*corpus)
+	if err != nil {
+		fmt.Fprintf(stderr, "lindexer: build failed: %v\n", err)
+		return 1
+	}
+	ours, err := os.MkdirTemp("", "linny-verify-*")
+	if err != nil {
+		fmt.Fprintf(stderr, "lindexer: %v\n", err)
+		return 1
+	}
+	defer func() { _ = os.RemoveAll(ours) }()
+	if err := index.Emit(g, ours); err != nil {
+		fmt.Fprintf(stderr, "lindexer: emit failed: %v\n", err)
+		return 1
+	}
+
+	discrepancies, err := index.VerifyDirs(ours, *reference)
+	if err != nil {
+		fmt.Fprintf(stderr, "lindexer: verify failed: %v\n", err)
+		return 1
+	}
+	if len(discrepancies) == 0 {
+		fmt.Fprintln(stdout, "verify: no discrepancies; our index matches the reference")
+		return 0
+	}
+	for _, d := range discrepancies {
+		fmt.Fprintf(stdout, "DRIFT %s: %s\n", d.File, d.Detail)
+	}
+	fmt.Fprintf(stderr, "lindexer: %d discrepancy(ies) vs reference\n", len(discrepancies))
+	return 1
 }
