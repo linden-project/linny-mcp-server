@@ -105,6 +105,30 @@ func parseSelector(segs []string) (selector, error) {
 	}
 }
 
+// CanWriteAll reports whether the scope grants unrestricted write (write:*).
+func (ss *ScopeSet) CanWriteAll() bool {
+	for _, r := range ss.rules {
+		if r.action == ActionWrite && !r.deny && r.sel.all {
+			return true
+		}
+	}
+	return false
+}
+
+// CanWriteInbox reports whether the scope grants writing into the quarantine
+// inbox (write:inbox), or has the broader write:*.
+func (ss *ScopeSet) CanWriteInbox() bool {
+	if ss.CanWriteAll() {
+		return true
+	}
+	for _, r := range ss.rules {
+		if r.action == ActionWrite && !r.deny && r.sel.taxonomy == "inbox" {
+			return true
+		}
+	}
+	return false
+}
+
 // ReadableFilenamesSQL compiles the read + deny rules into a subquery selecting
 // the filenames the scope may read, with bound args. A document is readable iff
 // some read-allow rule matches AND no deny rule matches any of its memberships.

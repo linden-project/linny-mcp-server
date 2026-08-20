@@ -31,6 +31,24 @@ not-found) and redact free-text output (commit subjects, diff hunks).
 | `diff`           | `slug: string`, `ref: string`        | `{found, diff}` — ref-vs-working diff; `ref` must not begin with `-` |
 | `changed_since`  | `since: string`                      | `{docs: [slug]}` — changed & readable; `since` must not begin with `-` |
 
+## Write (v1 — shipped)
+
+All write tools run the safe-write pipeline: scope check (denied ⇒ not-found),
+degraded-mode gate, atomic + optimistic-concurrent write, quarantine-by-default on
+create, reindex, and an entry in the external append-only audit log. Each returns the
+document's resulting term membership.
+
+| Tool | Arguments | Returns |
+|----------------------|--------------------------------------------|------------------------------------------|
+| `create_doc`         | `title`, `front_matter?`, `body?`          | `{ok, slug, quarantined, membership}` — lands in `status: agent-draft`; needs `write:inbox`/`write:*` |
+| `append_to_doc`      | `slug`, `text`                             | `{ok, slug, membership}` |
+| `set_front_matter`   | `slug`, `key`, `value`                     | `{ok, slug, membership}` — order-preserving |
+| `unset_front_matter` | `slug`, `key`                              | `{ok, slug, membership}` |
+| `archive`            | `slug`                                     | `{ok, slug, membership}` — sets `archived: true` |
+
+Modifying an existing document requires `write:*` (or `write:inbox` for a quarantined
+draft).
+
 ## Planned (not yet shipped)
 
 Recorded so names are reserved and stable when implemented:
@@ -39,12 +57,12 @@ Recorded so names are reserved and stable when implemented:
 - `related(doc)` — documents related by shared taxonomy membership.
 - `due_this_week()` — documents with a due date in the current week.
 - `open_items(project)` — open task-list items for a project.
-- Write tools (quarantine-default): `create_doc`, `set_front_matter`,
-  `unset_front_matter`, `append_to_doc`, `archive`.
 - Operational: `sync_status()`, `verify_index()`.
+- `delete` and bulk-retag — require out-of-band confirmation (policy already flags them).
 
 ## Change log
 
 - **v1** (2026-08-20): initial read/navigate surface — `search`, `get_doc`,
   `list_taxonomies`, `terms`, `docs_by_term`; history tools — `history`, `diff`,
-  `changed_since`.
+  `changed_since`; write tools — `create_doc`, `append_to_doc`, `set_front_matter`,
+  `unset_front_matter`, `archive`.

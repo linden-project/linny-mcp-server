@@ -6,8 +6,11 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
 	"github.com/linden-project/linny-mcp-server/internal/authz"
+	"github.com/linden-project/linny-mcp-server/internal/defense"
+	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
@@ -31,7 +34,13 @@ type Server struct {
 	Health     func() HealthStatus
 	Store      *index.Store
 	Redactor   *redact.Redactor
-	CorpusPath string // notebook working tree, for the git history tools
+	CorpusPath string // notebook working tree, for the git history + write tools
+
+	// Write support. When Guard and Audit are set (and the guard is not forced
+	// read-only), the write tools are registered. Policy defaults if unset.
+	Guard  *gitsafe.Guard
+	Audit  *audit.Log
+	Policy defense.Policy
 }
 
 // Handler returns the composed HTTP handler.
@@ -82,7 +91,17 @@ func (s *Server) mcpHandler() http.Handler {
 		if err != nil {
 			return nil // invalid scopes -> 400 from the transport
 		}
-		return buildToolServer(newReader(s.Store, red, ss, s.CorpusPath))
+		srv := buildToolServer(newReader(s.Store, red, ss, s.CorpusPath))
+		// Register write tools when writes are enabled: a guard + audit log are
+		// present and the guard is not forced read-only.
+		if s.Guard != nil && s.Audit != nil && !s.Guard.ForcedReadOnly() {
+			sw := *s // copy so a per-request policy default does not mutate the server
+			if sw.Policy.QuarantineTerm == "" {
+				sw.Policy = defense.DefaultPolicy()
+			}
+			registerWriteTools(srv, newWriter(&sw, ss, id.Name))
+		}
+		return srv
 	}
 	return mcpsdk.NewStreamableHTTPHandler(getServer, nil)
 }

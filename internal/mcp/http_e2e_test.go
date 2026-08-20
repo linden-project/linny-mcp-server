@@ -156,3 +156,59 @@ func decodeStructured(t *testing.T, res *mcpsdk.CallToolResult, v any) {
 		t.Fatalf("decode structured content: %v", err)
 	}
 }
+
+// TestMCPEndToEndCreateDoc drives a write over the real MCP protocol: create a
+// doc, then read it back, confirming reindex + quarantine + delimited body.
+func TestMCPEndToEndCreateDoc(t *testing.T) {
+	f := newWriteFixture(t, "read:*", "write:inbox") // skips if git is unavailable
+	// Attach auth to the fixture's populated store/guard/audit server.
+	token, err := auth.GenerateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.server.Auth = auth.NewStaticTokenAuthenticator([]auth.TokenRecord{
+		{Name: "e2e", Hash: auth.HashToken(token), Scopes: []string{"read:*", "write:inbox"}},
+	})
+
+	ts := httptest.NewServer(f.server.Handler())
+	defer ts.Close()
+
+	ctx := context.Background()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "0"}, nil)
+	transport := &mcpsdk.StreamableClientTransport{
+		Endpoint:   ts.URL + "/mcp",
+		HTTPClient: &http.Client{Transport: bearerRT{http.DefaultTransport, token}},
+	}
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	res, err := session.CallTool(ctx, &mcpsdk.CallToolParams{
+		Name:      "create_doc",
+		Arguments: map[string]any{"title": "Agent Idea", "body": "a drafted thought"},
+	})
+	if err != nil {
+		t.Fatalf("create_doc: %v", err)
+	}
+	var created writeOut
+	decodeStructured(t, res, &created)
+	if !created.OK || !created.Quarantined || created.Slug != "agent_idea.md" {
+		t.Fatalf("unexpected create result: %+v", created)
+	}
+
+	// Read it back over MCP.
+	res, err = session.CallTool(ctx, &mcpsdk.CallToolParams{
+		Name:      "get_doc",
+		Arguments: map[string]any{"slug": "agent_idea.md"},
+	})
+	if err != nil {
+		t.Fatalf("get_doc: %v", err)
+	}
+	var got getDocOut
+	decodeStructured(t, res, &got)
+	if !got.Found || !strings.Contains(got.Body, "a drafted thought") {
+		t.Fatalf("created doc not readable back: %+v", got)
+	}
+}

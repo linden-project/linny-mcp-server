@@ -97,6 +97,31 @@ func (s *Store) GetDoc(filename string) (doc Doc, ok bool, err error) {
 	return Doc{Filename: filename, Title: title, Props: props, Body: body}, true, nil
 }
 
+// TermMembership is a (taxonomy, term) a document belongs to.
+type TermMembership struct {
+	Taxonomy string `json:"taxonomy"`
+	Term     string `json:"term"`
+}
+
+// TermsOfDoc returns the (taxonomy, term) memberships of a document, sorted.
+func (s *Store) TermsOfDoc(filename string) ([]TermMembership, error) {
+	rows, err := s.db.Query(
+		`SELECT taxonomy, term FROM membership WHERE filename = ? ORDER BY taxonomy, term`, filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []TermMembership{}
+	for rows.Next() {
+		var m TermMembership
+		if err := rows.Scan(&m.Taxonomy, &m.Term); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) queryStrings(query string, args ...any) ([]string, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {

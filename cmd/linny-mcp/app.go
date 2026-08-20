@@ -14,9 +14,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/config"
+	"github.com/linden-project/linny-mcp-server/internal/defense"
 	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/mcp"
@@ -158,6 +160,19 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 		Health:     healthFromGuard(guard),
 		Redactor:   redact.New(),
 		CorpusPath: nb.CorpusPath,
+		Guard:      guard,
+		Policy:     defense.DefaultPolicy(),
+	}
+	// Write tools require an audit log outside the corpus (in the state dir).
+	// Without a state dir, or in read-only mode, writes stay unavailable.
+	if nb.StateDir != "" && !cfg.ReadOnly {
+		al, err := audit.Open(filepath.Join(nb.StateDir, "audit.log"))
+		if err != nil {
+			fmt.Fprintf(stderr, "linny-mcp: opening audit log: %v\n", err)
+			return 1
+		}
+		defer func() { _ = al.Close() }()
+		srv.Audit = al
 	}
 	// Attach the index store (read tools) when a state dir is configured. The
 	// store is created if absent (an empty store simply returns no results until
