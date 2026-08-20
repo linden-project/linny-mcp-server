@@ -53,7 +53,8 @@ draft).
 
 | Tool | Arguments | Returns |
 |---------------|-----------|------------------------------------------|
-| `sync_status` | — | `{degraded, conflicted, conflicts, in_progress, detached, read_only, reason}` — live git-safety state |
+| `sync_status`  | — | `{degraded, conflicted, conflicts, in_progress, detached, read_only, reason}` — live git-safety state |
+| `verify_index` | — | `{in_sync, corpus_docs, store_docs, missing_from_store, stale_in_store, conflicted}` — served index vs corpus |
 
 ## Planned (not yet shipped)
 
@@ -63,7 +64,7 @@ Recorded so names are reserved and stable when implemented:
 - `related(doc)` — documents related by shared taxonomy membership.
 - `due_this_week()` — documents with a due date in the current week.
 - `open_items(project)` — open task-list items for a project.
-(Note: index drift-check ships as the `lindexer verify` CLI; a `verify_index` MCP tool is a future addition.)
+(Note: the Hugo-reference JSON diff ships as the `lindexer verify` CLI; the `verify_index` MCP tool checks the served index against the corpus on disk.)
 - `delete` and bulk-retag — require out-of-band confirmation (policy already flags them).
 
 ## Change log
@@ -71,4 +72,4 @@ Recorded so names are reserved and stable when implemented:
 - **v1** (2026-08-20): initial read/navigate surface — `search`, `get_doc`,
   `list_taxonomies`, `terms`, `docs_by_term`; history tools — `history`, `diff`,
   `changed_since`; write tools — `create_doc`, `append_to_doc`, `set_front_matter`,
-  `unset_front_matter`, `archive`; operational — `sync_status`.
+  `unset_front_matter`, `archive`; operational — `sync_status`, `verify_index`.

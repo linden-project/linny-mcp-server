@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -94,6 +95,13 @@ func buildToolServer(rd *reader) *mcpsdk.Server {
 		Name:        "changed_since",
 		Description: "List documents changed since a date or revision (readable ones only).",
 	}, rd.changedSince)
+
+	if rd.corpusPath != "" && rd.store != nil {
+		mcpsdk.AddTool(srv, &mcpsdk.Tool{
+			Name:        "verify_index",
+			Description: "Check whether the served index is consistent with the corpus on disk (drift/staleness).",
+		}, rd.verifyIndex)
+	}
 
 	if rd.syncStatus != nil {
 		mcpsdk.AddTool(srv, &mcpsdk.Tool{
@@ -312,5 +320,59 @@ func (rd *reader) changedSince(_ context.Context, _ *mcpsdk.CallToolRequest, in 
 			out.Docs = append(out.Docs, slug)
 		}
 	}
+	return nil, out, nil
+}
+
+// --- operational: verify_index ---
+
+type verifyIndexOut struct {
+	InSync           bool     `json:"in_sync"`
+	CorpusDocs       int      `json:"corpus_docs"`
+	StoreDocs        int      `json:"store_docs"`
+	MissingFromStore []string `json:"missing_from_store"`
+	StaleInStore     []string `json:"stale_in_store"`
+	Conflicted       []string `json:"conflicted,omitempty"`
+}
+
+func (rd *reader) verifyIndex(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, verifyIndexOut, error) {
+	g, report, err := index.Build(rd.corpusPath)
+	if err != nil {
+		return nil, verifyIndexOut{}, err
+	}
+	corpusSet := map[string]bool{}
+	for name := range g.Records {
+		corpusSet[name] = true
+	}
+	stored, err := rd.store.AllDocFilenames()
+	if err != nil {
+		return nil, verifyIndexOut{}, err
+	}
+	storeSet := map[string]bool{}
+	for _, f := range stored {
+		storeSet[f] = true
+	}
+
+	out := verifyIndexOut{
+		CorpusDocs:       len(corpusSet),
+		StoreDocs:        len(storeSet),
+		MissingFromStore: []string{},
+		StaleInStore:     []string{},
+	}
+	for name := range corpusSet {
+		if !storeSet[name] {
+			out.MissingFromStore = append(out.MissingFromStore, name)
+		}
+	}
+	for _, f := range stored {
+		if !corpusSet[f] {
+			out.StaleInStore = append(out.StaleInStore, f)
+		}
+	}
+	sort.Strings(out.MissingFromStore)
+	sort.Strings(out.StaleInStore)
+	for _, c := range report.Conflicted {
+		out.Conflicted = append(out.Conflicted, c.File)
+	}
+	out.InSync = len(out.MissingFromStore) == 0 && len(out.StaleInStore) == 0
 	return nil, out, nil
 }

@@ -58,6 +58,11 @@ func (s *Store) ListTaxonomies() ([]string, error) {
 	return s.queryStrings(`SELECT name FROM taxonomies ORDER BY name`)
 }
 
+// AllDocFilenames returns every document filename in the store, sorted.
+func (s *Store) AllDocFilenames() ([]string, error) {
+	return s.queryStrings(`SELECT filename FROM docs ORDER BY filename`)
+}
+
 // TermsForTaxonomy returns the terms of a taxonomy, sorted.
 func (s *Store) TermsForTaxonomy(taxonomy string) ([]string, error) {
 	return s.queryStrings(`SELECT term FROM terms WHERE taxonomy = ? ORDER BY term`, taxonomy)

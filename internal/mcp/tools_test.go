@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -131,4 +132,46 @@ func TestGetDocBodyIsDelimited(t *testing.T) {
 	if !strings.HasPrefix(out.Body, defense.BodyBegin) || !strings.HasSuffix(out.Body, defense.BodyEnd) {
 		t.Fatalf("get_doc body must be wrapped in data delimiters, got:\n%s", out.Body)
 	}
+}
+
+func TestVerifyIndexInSyncAndDrift(t *testing.T) {
+	rd := testReader(t, "read:*") // store populated from the corpus at rd.corpusPath
+
+	// Freshly populated store built from the same corpus -> in sync.
+	_, out, err := rd.verifyIndex(context.Background(), nil, emptyIn{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.InSync || len(out.MissingFromStore) != 0 || len(out.StaleInStore) != 0 {
+		t.Fatalf("expected in-sync, got %+v", out)
+	}
+	// The synthetic corpus (edge cases on) carries a committed conflict marker.
+	if len(out.Conflicted) == 0 {
+		t.Fatalf("expected conflict_markers.md to be reported conflicted, got %+v", out.Conflicted)
+	}
+
+	// Add a record to the corpus without reindexing -> reported missing_from_store.
+	if err := os.WriteFile(filepath.Join(rd.corpusPath, "content", "brand_new.md"),
+		[]byte("---\ntitle: Brand New\ntags: note\n---\nhi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, out, err = rd.verifyIndex(context.Background(), nil, emptyIn{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.InSync {
+		t.Fatal("expected out-of-sync after adding an unindexed record")
+	}
+	if !containsStrT(out.MissingFromStore, "brand_new.md") {
+		t.Fatalf("expected brand_new.md in missing_from_store, got %+v", out.MissingFromStore)
+	}
+}
+
+func containsStrT(s []string, v string) bool {
+	for _, x := range s {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }
