@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,7 +14,9 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/linden-project/linny-mcp-server/internal/alert"
 	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
@@ -198,6 +201,19 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "linny-mcp %s serving notebook %q on %s (%d token(s), read-only=%t%s)\n",
 		buildinfo.Version, nb.Name, addr, len(records), cfg.ReadOnly, hostNote)
+	// Background degraded-mode monitor: alert out-of-band (ntfy) on transitions.
+	var alerter alert.Alerter = alert.NopAlerter{}
+	if cfg.NtfyTopicURL != "" {
+		alerter = alert.NtfyAlerter{TopicURL: cfg.NtfyTopicURL}
+	}
+	monitor := alert.NewDegradedMonitor(nb.Name, func() (bool, string) {
+		st := guard.State()
+		return !st.Clean || guard.ForcedReadOnly(), st.Reason
+	}, alerter)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go monitor.Run(ctx, 30*time.Second)
+
 	if err := http.ListenAndServe(addr, srv.Handler()); err != nil { //nolint:gosec // TLS terminates upstream
 		fmt.Fprintf(stderr, "linny-mcp: server error: %v\n", err)
 		return 1

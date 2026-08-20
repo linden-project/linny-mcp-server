@@ -17,13 +17,16 @@ type Notebook struct {
 // Config is the full server configuration. PublicHostname is a plain
 // configuration value — no hostname is ever compiled in as a constant.
 type Config struct {
-	ListenAddress  string     `json:"listenAddress"`
-	Port           int        `json:"port"`
-	TokensFile     string     `json:"tokensFile"`
-	LogLevel       string     `json:"logLevel"`
-	ReadOnly       bool       `json:"readOnly"`
-	PublicHostname string     `json:"publicHostname"`
-	Notebooks      []Notebook `json:"notebooks"`
+	ListenAddress  string `json:"listenAddress"`
+	Port           int    `json:"port"`
+	TokensFile     string `json:"tokensFile"`
+	LogLevel       string `json:"logLevel"`
+	ReadOnly       bool   `json:"readOnly"`
+	PublicHostname string `json:"publicHostname"`
+	// NtfyTopicURL, when set, receives out-of-band degraded-mode alerts (a plain
+	// HTTP POST target — no secret, safe in a Nix option).
+	NtfyTopicURL string     `json:"ntfyTopicURL"`
+	Notebooks    []Notebook `json:"notebooks"`
 }
 
 // Defaults returns a config with the non-notebook defaults filled in.

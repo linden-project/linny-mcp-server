@@ -217,3 +217,47 @@ func TestModifyForbiddenWithReadOnlyScope(t *testing.T) {
 func (w *writer) reader() *reader {
 	return &reader{store: w.store, red: w.red, scopeSQL: w.scopeSQL, scopeArgs: w.scopeArgs, corpusPath: w.corpusPath}
 }
+
+func TestSyncStatusTool(t *testing.T) {
+	f := newWriteFixture(t, "read:*")
+	rd := f.w.reader()
+	// Attach the same status mapping the server uses.
+	g := f.server.Guard
+	rd.syncStatus = func() SyncStatus {
+		st := g.State()
+		return SyncStatus{Degraded: !st.Clean || g.ForcedReadOnly(), Conflicted: st.Conflicted,
+			Conflicts: st.ConflictedPaths, InProgress: st.InProgress, Detached: st.Detached,
+			ReadOnly: g.ForcedReadOnly(), Reason: st.Reason}
+	}
+
+	// Clean tree.
+	_, ss, err := rd.syncStatusTool(context.Background(), nil, emptyIn{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ss.Degraded {
+		t.Fatalf("clean tree should not be degraded: %+v", ss)
+	}
+
+	// Introduce a conflict marker -> degraded with the path listed.
+	if err := os.WriteFile(filepath.Join(f.root, "content", "boom.md"),
+		[]byte("<<<<<<< HEAD\nx\n>>>>>>> y\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, ss, err = rd.syncStatusTool(context.Background(), nil, emptyIn{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ss.Degraded || !ss.Conflicted {
+		t.Fatalf("expected degraded+conflicted, got %+v", ss)
+	}
+	found := false
+	for _, p := range ss.Conflicts {
+		if p == filepath.Join("content", "boom.md") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected content/boom.md in conflicts, got %v", ss.Conflicts)
+	}
+}

@@ -49,6 +49,12 @@ document's resulting term membership.
 Modifying an existing document requires `write:*` (or `write:inbox` for a quarantined
 draft).
 
+## Operational (v1 — shipped)
+
+| Tool | Arguments | Returns |
+|---------------|-----------|------------------------------------------|
+| `sync_status` | — | `{degraded, conflicted, conflicts, in_progress, detached, read_only, reason}` — live git-safety state |
+
 ## Planned (not yet shipped)
 
 Recorded so names are reserved and stable when implemented:
@@ -57,7 +63,7 @@ Recorded so names are reserved and stable when implemented:
 - `related(doc)` — documents related by shared taxonomy membership.
 - `due_this_week()` — documents with a due date in the current week.
 - `open_items(project)` — open task-list items for a project.
-- Operational: `sync_status()`, `verify_index()`.
+- Operational: `verify_index()` (diff our JSON vs Hugo).
 - `delete` and bulk-retag — require out-of-band confirmation (policy already flags them).
 
 ## Change log
@@ -65,4 +71,4 @@ Recorded so names are reserved and stable when implemented:
 - **v1** (2026-08-20): initial read/navigate surface — `search`, `get_doc`,
   `list_taxonomies`, `terms`, `docs_by_term`; history tools — `history`, `diff`,
   `changed_since`; write tools — `create_doc`, `append_to_doc`, `set_front_matter`,
-  `unset_front_matter`, `archive`.
+  `unset_front_matter`, `archive`; operational — `sync_status`.

@@ -27,7 +27,19 @@ type reader struct {
 	red        *redact.Redactor
 	scopeSQL   string
 	scopeArgs  []any
-	corpusPath string // for git history tools; may be empty
+	corpusPath string            // for git history tools; may be empty
+	syncStatus func() SyncStatus // operational status; when set, sync_status is registered
+}
+
+// SyncStatus is the operational git-safety state returned by the sync_status tool.
+type SyncStatus struct {
+	Degraded   bool     `json:"degraded"`
+	Conflicted bool     `json:"conflicted"`
+	Conflicts  []string `json:"conflicts,omitempty"`
+	InProgress string   `json:"in_progress,omitempty"`
+	Detached   bool     `json:"detached"`
+	ReadOnly   bool     `json:"read_only"`
+	Reason     string   `json:"reason,omitempty"`
 }
 
 // newReader builds a reader for a scope set.
@@ -83,7 +95,18 @@ func buildToolServer(rd *reader) *mcpsdk.Server {
 		Description: "List documents changed since a date or revision (readable ones only).",
 	}, rd.changedSince)
 
+	if rd.syncStatus != nil {
+		mcpsdk.AddTool(srv, &mcpsdk.Tool{
+			Name:        "sync_status",
+			Description: "Report the notebook's git-safety state (degraded, conflicted paths, in-progress op).",
+		}, rd.syncStatusTool)
+	}
+
 	return srv
+}
+
+func (rd *reader) syncStatusTool(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, SyncStatus, error) {
+	return nil, rd.syncStatus(), nil
 }
 
 // --- tool input/output types (schemas are inferred from these) ---

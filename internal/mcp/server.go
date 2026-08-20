@@ -91,7 +91,23 @@ func (s *Server) mcpHandler() http.Handler {
 		if err != nil {
 			return nil // invalid scopes -> 400 from the transport
 		}
-		srv := buildToolServer(newReader(s.Store, red, ss, s.CorpusPath))
+		rd := newReader(s.Store, red, ss, s.CorpusPath)
+		if s.Guard != nil {
+			g := s.Guard
+			rd.syncStatus = func() SyncStatus {
+				st := g.State()
+				return SyncStatus{
+					Degraded:   !st.Clean || g.ForcedReadOnly(),
+					Conflicted: st.Conflicted,
+					Conflicts:  st.ConflictedPaths,
+					InProgress: st.InProgress,
+					Detached:   st.Detached,
+					ReadOnly:   g.ForcedReadOnly(),
+					Reason:     st.Reason,
+				}
+			}
+		}
+		srv := buildToolServer(rd)
 		// Register write tools when writes are enabled: a guard + audit log are
 		// present and the guard is not forced read-only.
 		if s.Guard != nil && s.Audit != nil && !s.Guard.ForcedReadOnly() {
