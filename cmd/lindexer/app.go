@@ -9,10 +9,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 )
+
+// storeFile is the SQLite database filename inside a state directory.
+const storeFile = "index.sqlite"
 
 const usage = `lindexer - the standalone Linden indexer
 
@@ -21,11 +27,12 @@ Usage:
 
 Commands:
   build       Full rebuild of the index from a corpus
+  search      Full-text search a persisted index store
   watch       Incrementally update the index via fsnotify (not yet implemented)
   verify      Diff our JSON index against Hugo's output (not yet implemented)
   version     Print the version and exit
 
-Run 'lindexer build -h' for build flags.
+Run 'lindexer build -h' or 'lindexer search -h' for flags.
 `
 
 // Run executes the CLI and returns a process exit code.
@@ -40,6 +47,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "build":
 		return buildCmd(args[2:], stdout, stderr)
+	case "search":
+		return searchCmd(args[2:], stdout, stderr)
 	case "watch", "verify":
 		fmt.Fprintf(stderr, "lindexer: %s is not implemented yet\n", args[1])
 		return 1
@@ -56,7 +65,8 @@ func buildCmd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	corpus := fs.String("corpus", ".", "corpus root (contains the content dir and lindenConfig)")
-	indexRoot := fs.String("index", "lindenIndex", "index output directory")
+	indexRoot := fs.String("index", "lindenIndex", "JSON index output directory")
+	stateDir := fs.String("state-dir", "", "if set, also persist the SQLite+FTS5 store to this directory")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -70,6 +80,13 @@ func buildCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "lindexer: emit failed: %v\n", err)
 		return 1
 	}
+	if *stateDir != "" {
+		if err := persistStore(g, *stateDir); err != nil {
+			fmt.Fprintf(stderr, "lindexer: persist failed: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "persisted SQLite+FTS5 store to %s\n", filepath.Join(*stateDir, storeFile))
+	}
 
 	fmt.Fprintf(stdout, "indexed %d records into %s\n", report.RecordCount, *indexRoot)
 	for _, m := range report.Malformed {
@@ -80,6 +97,63 @@ func buildCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	if report.HasProblems() {
 		fmt.Fprintf(stderr, "lindexer: corpus contains %d conflicted file(s); the server should treat the tree as degraded\n", len(report.Conflicted))
+	}
+	return 0
+}
+
+// persistStore writes the graph to a SQLite+FTS5 store under stateDir.
+func persistStore(g *index.Graph, stateDir string) error {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		return err
+	}
+	store, err := index.OpenStore(filepath.Join(stateDir, storeFile))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = store.Close() }()
+	return store.Populate(g)
+}
+
+func searchCmd(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	stateDir := fs.String("state-dir", "", "directory holding the persisted store (required)")
+	limit := fs.Int("limit", 10, "maximum number of hits")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *stateDir == "" {
+		fmt.Fprintln(stderr, "lindexer: search requires --state-dir")
+		return 2
+	}
+	query := strings.TrimSpace(strings.Join(fs.Args(), " "))
+	if query == "" {
+		fmt.Fprintln(stderr, "lindexer: search requires a query")
+		return 2
+	}
+
+	store, err := index.OpenStore(filepath.Join(*stateDir, storeFile))
+	if err != nil {
+		fmt.Fprintf(stderr, "lindexer: opening store: %v\n", err)
+		return 1
+	}
+	defer func() { _ = store.Close() }()
+
+	hits, err := store.Search(query, *limit)
+	if err != nil {
+		fmt.Fprintf(stderr, "lindexer: search failed: %v\n", err)
+		return 1
+	}
+	if len(hits) == 0 {
+		fmt.Fprintf(stdout, "no matches for %q\n", query)
+		return 0
+	}
+	for _, h := range hits {
+		title := h.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Fprintf(stdout, "%s\t%s\n    %s\n", h.Filename, title, h.Snippet)
 	}
 	return 0
 }
