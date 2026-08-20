@@ -98,42 +98,72 @@ func splitScopes(s string) []string {
 func serveCmd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	corpus := fs.String("corpus", ".", "corpus root")
-	_ = fs.String("state-dir", "", "disposable index/state directory")
+	configPath := fs.String("config", "", "path to a JSON config file (overrides the single-notebook flags below)")
+	notebook := fs.String("notebook", "", "notebook to serve when several are configured (default: first)")
+	corpus := fs.String("corpus", ".", "corpus root (single-notebook sugar; ignored with --config)")
+	stateDir := fs.String("state-dir", "", "disposable index/state directory")
 	listen := fs.String("listen", "127.0.0.1", "listen address (loopback/mesh only, unless override)")
 	port := fs.Int("port", 8765, "listen port")
-	tokensFile := fs.String("tokens-file", "", "path to the bearer token file (required)")
-	_ = fs.String("log-level", "info", "log level")
+	tokensFile := fs.String("tokens-file", "", "path to the bearer token file")
+	logLevel := fs.String("log-level", "info", "log level")
 	readOnly := fs.Bool("read-only", false, "force read-only mode")
 	override := fs.Bool("i-know-what-im-doing", false, "allow binding a public address")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	if *tokensFile == "" {
-		fmt.Fprintln(stderr, "linny-mcp: serve requires --tokens-file (a PATH, never a token value)")
-		return 2
+	var cfg config.Config
+	var err error
+	if *configPath != "" {
+		if cfg, err = config.Load(*configPath); err != nil {
+			fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
+			return 1
+		}
+	} else {
+		if *tokensFile == "" {
+			fmt.Fprintln(stderr, "linny-mcp: serve requires --tokens-file (a PATH, never a token value) or --config")
+			return 2
+		}
+		if cfg, err = config.FromFlags(*listen, *port, *tokensFile, *logLevel, *readOnly, *corpus, *stateDir); err != nil {
+			fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
+			return 1
+		}
 	}
-	if err := config.CheckBindAddress(*listen, *override); err != nil {
+
+	nb, err := cfg.Resolve(*notebook)
+	if err != nil {
 		fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
 		return 1
 	}
-	records, err := auth.LoadTokenFile(*tokensFile)
+	if cfg.TokensFile == "" {
+		fmt.Fprintln(stderr, "linny-mcp: config has no tokensFile (a PATH, never a token value)")
+		return 2
+	}
+	if err := config.CheckBindAddress(cfg.ListenAddress, *override); err != nil {
+		fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
+		return 1
+	}
+	records, err := auth.LoadTokenFile(cfg.TokensFile)
 	if err != nil {
 		fmt.Fprintf(stderr, "linny-mcp: loading tokens: %v\n", err)
 		return 1
 	}
 
-	guard := gitsafe.NewGuard(*corpus, *readOnly)
+	guard := gitsafe.NewGuard(nb.CorpusPath, cfg.ReadOnly)
 	srv := &mcp.Server{
 		Auth:   auth.NewStaticTokenAuthenticator(records),
 		Health: healthFromGuard(guard),
 	}
-	addr := net.JoinHostPort(*listen, fmt.Sprintf("%d", *port))
+	addr := net.JoinHostPort(cfg.ListenAddress, fmt.Sprintf("%d", cfg.Port))
 	if st := guard.State(); !st.Clean {
 		fmt.Fprintf(stderr, "linny-mcp: WARNING starting in degraded read-only mode: %s\n", st.Reason)
 	}
-	fmt.Fprintf(stdout, "linny-mcp %s listening on %s (%d token(s) loaded, read-only=%t)\n", buildinfo.Version, addr, len(records), *readOnly)
+	hostNote := ""
+	if cfg.PublicHostname != "" {
+		hostNote = fmt.Sprintf(", public=%s", cfg.PublicHostname)
+	}
+	fmt.Fprintf(stdout, "linny-mcp %s serving notebook %q on %s (%d token(s), read-only=%t%s)\n",
+		buildinfo.Version, nb.Name, addr, len(records), cfg.ReadOnly, hostNote)
 	if err := http.ListenAndServe(addr, srv.Handler()); err != nil { //nolint:gosec // TLS terminates upstream
 		fmt.Fprintf(stderr, "linny-mcp: server error: %v\n", err)
 		return 1

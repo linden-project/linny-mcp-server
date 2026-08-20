@@ -27,14 +27,48 @@ in
     };
 
     corpusPath = lib.mkOption {
-      type = lib.types.path;
-      description = "Path to the Linny notebook (markdown corpus) git working tree.";
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        Single-notebook convenience: path to the Linny notebook (markdown corpus)
+        git working tree. Desugars to one notebook named "default". Leave null and
+        use `notebooks` for multi-notebook setups.
+      '';
     };
 
     stateDir = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/linny-mcp";
-      description = "Directory for the disposable SQLite/FTS5 index. Safe to delete.";
+      description = "State dir for the single-notebook convenience path. Disposable index; safe to delete.";
+    };
+
+    notebooks = lib.mkOption {
+      default = [ ];
+      description = ''
+        The notebooks to serve. Designed for N notebooks (e.g. personal vs.
+        business). If empty, `corpusPath`/`stateDir` desugar to a single
+        "default" notebook.
+      '';
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption { type = lib.types.str; description = "Unique notebook name."; };
+          corpusPath = lib.mkOption { type = lib.types.path; description = "Corpus git working tree."; };
+          stateDir = lib.mkOption {
+            type = lib.types.str;
+            description = "Disposable index/state dir for this notebook.";
+          };
+        };
+      });
+    };
+
+    publicHostname = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "secondbrain.example.com";
+      description = ''
+        The public hostname the reverse proxy fronts this server with. Purely
+        configuration — no hostname is compiled into the binary. Leave null if unused.
+      '';
     };
 
     listenAddress = lib.mkOption {
@@ -87,35 +121,61 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    # Minimal service. Hardening is layered on in milestone 06.
-    users.users.${cfg.user} = lib.mkIf (cfg.user == "linny-mcp") {
-      isSystemUser = true;
-      group = cfg.group;
-      home = cfg.stateDir;
-    };
-    users.groups.${cfg.group} = lib.mkIf (cfg.group == "linny-mcp") { };
+  config = lib.mkIf cfg.enable (
+    let
+      # Desugar the single-notebook convenience into the notebook list.
+      resolvedNotebooks =
+        if cfg.notebooks != [ ]
+        then cfg.notebooks
+        else [{ name = "default"; corpusPath = cfg.corpusPath; stateDir = cfg.stateDir; }];
 
-    systemd.services.linny-mcp = {
-      description = "linny-mcp MCP server";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
-      serviceConfig = {
-        ExecStart = lib.escapeShellArgs ([
-          (lib.getExe cfg.package)
-          "serve"
-          "--corpus" cfg.corpusPath
-          "--state-dir" cfg.stateDir
-          "--listen" cfg.listenAddress
-          "--port" (toString cfg.port)
-          "--tokens-file" cfg.tokensFile
-          "--log-level" cfg.logLevel
-        ] ++ lib.optionals cfg.readOnly [ "--read-only" ]);
-        User = cfg.user;
-        Group = cfg.group;
-        StateDirectory = "linny-mcp";
-        Restart = "on-failure";
+      # Generated config JSON. Contains only PATHS and non-secret settings —
+      # never a token value — so it is safe in the world-readable /nix/store.
+      configJSON = {
+        listenAddress = cfg.listenAddress;
+        port = cfg.port;
+        tokensFile = toString cfg.tokensFile;
+        logLevel = cfg.logLevel;
+        readOnly = cfg.readOnly;
+        publicHostname = if cfg.publicHostname == null then "" else cfg.publicHostname;
+        notebooks = map (nb: {
+          name = nb.name;
+          corpusPath = toString nb.corpusPath;
+          stateDir = nb.stateDir;
+        }) resolvedNotebooks;
       };
-    };
-  };
+      configFile = pkgs.writeText "linny-mcp-config.json" (builtins.toJSON configJSON);
+
+      rwPaths = map (nb: nb.corpusPath) resolvedNotebooks
+        ++ map (nb: nb.stateDir) resolvedNotebooks;
+    in
+    {
+      assertions = [{
+        assertion = cfg.notebooks != [ ] || cfg.corpusPath != null;
+        message = "services.linny-mcp: set either `corpusPath` (single notebook) or `notebooks` (one or more).";
+      }];
+
+      users.users.${cfg.user} = lib.mkIf (cfg.user == "linny-mcp") {
+        isSystemUser = true;
+        group = cfg.group;
+        home = cfg.stateDir;
+      };
+      users.groups.${cfg.group} = lib.mkIf (cfg.group == "linny-mcp") { };
+
+      systemd.services.linny-mcp = {
+        description = "linny-mcp MCP server";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" ];
+        # Minimal serviceConfig. Full systemd hardening lands in milestone 06.
+        serviceConfig = {
+          ExecStart = lib.escapeShellArgs [ (lib.getExe cfg.package) "serve" "--config" configFile ];
+          User = cfg.user;
+          Group = cfg.group;
+          StateDirectory = "linny-mcp";
+          ReadWritePaths = rwPaths;
+          Restart = "on-failure";
+        };
+      };
+    }
+  );
 }
