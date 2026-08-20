@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/linden-project/linny-mcp-server/internal/alert"
 	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
+	"github.com/linden-project/linny-mcp-server/internal/backup"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/config"
 	"github.com/linden-project/linny-mcp-server/internal/defense"
@@ -36,6 +38,8 @@ Usage:
 Commands:
   serve       Run the MCP server (bind safety + bearer auth + /healthz)
   gen-token   Generate a bearer token and its token-file record
+  backup      Snapshot the corpus (content + lindenConfig) to a tar.gz
+  restore     Restore a corpus snapshot from a tar.gz
   version     Print the version and exit
 `
 
@@ -53,6 +57,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return genTokenCmd(args[2:], stdout, stderr)
 	case "serve":
 		return serveCmd(args[2:], stdout, stderr)
+	case "backup":
+		return backupCmd(args[2:], stdout, stderr)
+	case "restore":
+		return restoreCmd(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usage)
 		return 0
@@ -238,4 +246,56 @@ func healthFromGuard(g *gitsafe.Guard) func() mcp.HealthStatus {
 			Conflicts:  st.ConflictedPaths,
 		}
 	}
+}
+
+func backupCmd(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	corpus := fs.String("corpus", ".", "corpus root")
+	out := fs.String("out", "", "output tar.gz path (required)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *out == "" {
+		fmt.Fprintln(stderr, "linny-mcp: backup requires --out")
+		return 2
+	}
+	f, err := os.Create(*out)
+	if err != nil {
+		fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
+		return 1
+	}
+	defer func() { _ = f.Close() }()
+	if err := backup.Backup(*corpus, f); err != nil {
+		fmt.Fprintf(stderr, "linny-mcp: backup failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "backed up %s to %s\n", *corpus, *out)
+	return 0
+}
+
+func restoreCmd(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	corpus := fs.String("corpus", ".", "corpus root to restore into")
+	in := fs.String("in", "", "input tar.gz path (required)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *in == "" {
+		fmt.Fprintln(stderr, "linny-mcp: restore requires --in")
+		return 2
+	}
+	f, err := os.Open(*in)
+	if err != nil {
+		fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
+		return 1
+	}
+	defer func() { _ = f.Close() }()
+	if err := backup.Restore(f, *corpus); err != nil {
+		fmt.Fprintf(stderr, "linny-mcp: restore failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "restored %s into %s\n", *in, *corpus)
+	return 0
 }
