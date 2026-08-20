@@ -8,6 +8,7 @@ import (
 
 	"github.com/linden-project/linny-mcp-server/internal/authz"
 	"github.com/linden-project/linny-mcp-server/internal/corpus"
+	"github.com/linden-project/linny-mcp-server/internal/defense"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
@@ -115,5 +116,19 @@ func TestSearchScopedReturnsHits(t *testing.T) {
 	}
 	if s.Hits[0].Filename == "" {
 		t.Fatal("hit missing filename")
+	}
+}
+
+func TestGetDocBodyIsDelimited(t *testing.T) {
+	rd := testReader(t, "read:*")
+	_, out, err := rd.getDoc(context.Background(), nil, getDocIn{Slug: "fake_secrets.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Found {
+		t.Fatal("fake_secrets.md should be readable")
+	}
+	if !strings.HasPrefix(out.Body, defense.BodyBegin) || !strings.HasSuffix(out.Body, defense.BodyEnd) {
+		t.Fatalf("get_doc body must be wrapped in data delimiters, got:\n%s", out.Body)
 	}
 }

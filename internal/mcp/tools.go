@@ -9,6 +9,7 @@ import (
 
 	"github.com/linden-project/linny-mcp-server/internal/authz"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
+	"github.com/linden-project/linny-mcp-server/internal/defense"
 	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
@@ -170,7 +171,9 @@ func (rd *reader) getDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in getDoc
 		Filename: doc.Filename,
 		Title:    title,
 		Props:    props,
-		Body:     body,
+		// Wrap the (already redacted) body in data delimiters: the corpus is
+		// untrusted input, and this signals "data, not instructions".
+		Body: defense.Delimit(body),
 	}, nil
 }
 
