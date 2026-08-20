@@ -61,7 +61,25 @@ Core properties:
   no-information-leak 401; scope intersection (the `work`+`health` deny case);
   degraded-mode write refusal on a conflicted tree; concurrency (two writers, one
   stale hash); a tested backup/restore path.
-- `nix flake check` runs `go test` + lint and must pass — it gates this build.
+
+### Testing agreement (what unit vs e2e mean here)
+- **Unit tests** live beside the package they test and exercise one component in
+  isolation (parser, redactor, scope compiler, store queries, bind check). They use
+  the deterministic synthetic corpus or hand-built fixtures — never the network.
+- **E2E tests** drive a real vertical slice: the MCP tools are tested through the
+  actual SDK client over an `httptest` server with a bearer-injecting transport; the
+  git-safety and history tools run against a real temporary git repository; the
+  indexer/store are tested build→persist→query. E2E tests may shell out to `git`.
+- **Coverage gate:** `nix flake check` includes a `coverage` check that measures total
+  statement coverage with `-coverpkg=./...` (so e2e tests count toward the packages
+  they exercise) and **fails below 70%**. Inherently-untestable glue (`main()`
+  wrappers, the long-running `serve` listen loop) is expected to be uncovered; the
+  floor is set with that in mind. Current coverage is well above the floor (~82%).
+
+### Gates
+- `nix flake check` runs three checks and must pass — it gates this build:
+  `gotest` (the package build with `go test`), `lint` (`golangci-lint`), and
+  `coverage` (≥ 70% total, git-backed tests included).
 
 ### Git Workflow
 - jj (colocated with git), committing as **Pim Snel** — no self-promoting trailers,

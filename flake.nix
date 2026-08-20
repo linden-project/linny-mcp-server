@@ -65,6 +65,27 @@
               touch "$out/lint-ok"
             '';
           });
+
+          # `coverage` runs the whole suite with cross-package coverage and fails
+          # below the 70% floor. git is on PATH so the git-backed tests run.
+          coverage = pkgs.linny-mcp.overrideAttrs (old: {
+            pname = "linny-mcp-coverage";
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.git ];
+            doCheck = false;
+            buildPhase = ''
+              runHook preBuild
+              export HOME="$TMPDIR"
+              go test ./... -coverpkg=./... -covermode=atomic -coverprofile=cover.out
+              total=$(go tool cover -func=cover.out | awk '/^total:/ { gsub("%","",$3); print $3 }')
+              echo "total statement coverage: $total% (floor 70%)"
+              awk -v t="$total" 'BEGIN { if (t+0 < 70.0) { printf "FAIL: coverage %s%% is below the 70%% gate\n", t; exit 1 } }'
+              runHook postBuild
+            '';
+            installPhase = ''
+              mkdir -p "$out"
+              cp cover.out "$out/cover.out"
+            '';
+          });
         });
 
       # Fleshed out in milestone 06 (nixos-module-hardened). Declared here so the
