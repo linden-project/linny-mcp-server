@@ -14,15 +14,29 @@ type Discrepancy struct {
 	Detail string `json:"detail"`
 }
 
-// VerifyDirs diffs two index directories and returns the discrepancies. Arrays
-// are compared as sets (the spec declares index arrays unordered); objects are
-// compared key-by-key; `_indexer_info.json` ignores identity/placeholder fields.
+// VerifyOpts tunes the diff.
+type VerifyOpts struct {
+	// IgnoreReferenceOnly skips files present only in the reference (e.g. Hugo's
+	// vestigial per-page <slug>/index.json outputs) and tolerates unparseable
+	// reference files. Used for the Hugo round-trip.
+	IgnoreReferenceOnly bool
+}
+
+// VerifyDirs diffs two index directories with default (strict) options.
 func VerifyDirs(ours, reference string) ([]Discrepancy, error) {
-	ourFiles, err := indexJSONFiles(ours)
+	return VerifyDirsWithOpts(ours, reference, VerifyOpts{})
+}
+
+// VerifyDirsWithOpts diffs two index directories. Arrays are compared as sets
+// (the spec declares index arrays unordered); objects are compared key-by-key;
+// `_indexer_info.json` ignores identity/placeholder fields and `docs_with_props`
+// ignores Hugo's injected built-in params.
+func VerifyDirsWithOpts(ours, reference string, opts VerifyOpts) ([]Discrepancy, error) {
+	ourFiles, err := indexJSONFiles(ours, false)
 	if err != nil {
 		return nil, err
 	}
-	refFiles, err := indexJSONFiles(reference)
+	refFiles, err := indexJSONFiles(reference, opts.IgnoreReferenceOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +47,11 @@ func VerifyDirs(ours, reference string) ([]Discrepancy, error) {
 			d = append(d, Discrepancy{File: rel, Detail: "present in ours, absent in reference"})
 		}
 	}
-	for rel := range refFiles {
-		if _, ok := ourFiles[rel]; !ok {
-			d = append(d, Discrepancy{File: rel, Detail: "present in reference, absent in ours"})
+	if !opts.IgnoreReferenceOnly {
+		for rel := range refFiles {
+			if _, ok := ourFiles[rel]; !ok {
+				d = append(d, Discrepancy{File: rel, Detail: "present in reference, absent in ours"})
+			}
 		}
 	}
 	for rel, ov := range ourFiles {
@@ -58,7 +74,9 @@ func VerifyDirs(ours, reference string) ([]Discrepancy, error) {
 }
 
 // indexJSONFiles reads every *.json under root into a map of relpath -> value.
-func indexJSONFiles(root string) (map[string]any, error) {
+// When tolerant is true, files that fail to parse are skipped (Hugo's per-page
+// outputs can be invalid JSON) rather than aborting.
+func indexJSONFiles(root string, tolerant bool) (map[string]any, error) {
 	out := map[string]any{}
 	err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -73,6 +91,9 @@ func indexJSONFiles(root string) (map[string]any, error) {
 		}
 		var v any
 		if err := json.Unmarshal(b, &v); err != nil {
+			if tolerant {
+				return nil // skip unparseable reference files
+			}
 			return err
 		}
 		rel, _ := filepath.Rel(root, p)
@@ -82,9 +103,37 @@ func indexJSONFiles(root string) (map[string]any, error) {
 	return out, err
 }
 
+// hugoBuiltinParams are params Hugo injects into every page's .Params that are
+// not Linden front matter; ignored when comparing docs_with_props.
+var hugoBuiltinParams = []string{"draft", "iscjklanguage"}
+
 // normalizeForFile drops fields that are expected to differ between a conforming
 // indexer and the Hugo reference for _indexer_info.json.
 func normalizeForFile(base string, v any) any {
+	if base == fileDocsWithProps {
+		// docs_with_props: filename -> props map. Drop Hugo's injected built-ins
+		// from each doc's props so they don't, alone, count as drift.
+		m, ok := v.(map[string]any)
+		if !ok {
+			return v
+		}
+		out := make(map[string]any, len(m))
+		for file, props := range m {
+			if pm, ok := props.(map[string]any); ok {
+				cp := make(map[string]any, len(pm))
+				for k, val := range pm {
+					cp[k] = val
+				}
+				for _, b := range hugoBuiltinParams {
+					delete(cp, b)
+				}
+				out[file] = cp
+			} else {
+				out[file] = props
+			}
+		}
+		return out
+	}
 	if base != fileIndexerInfo {
 		return v
 	}

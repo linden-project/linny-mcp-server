@@ -70,10 +70,13 @@ func TestVerifyCLIMatches(t *testing.T) {
 	}
 }
 
-func TestVerifyCLIRequiresReference(t *testing.T) {
+func TestVerifyRequiresReferenceOrHugo(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := Run([]string{"lindexer", "verify", "--corpus", "."}, &out, &errOut); code != 2 {
-		t.Fatalf("verify without --reference exit=%d, want 2", code)
+		t.Fatalf("verify without --reference/--hugo exit=%d, want 2", code)
+	}
+	if !strings.Contains(errOut.String(), "--hugo") {
+		t.Fatalf("expected hint mentioning --hugo, got %q", errOut.String())
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"syscall"
 
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
+	"github.com/linden-project/linny-mcp-server/internal/hugoref"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 )
 
@@ -166,13 +167,29 @@ func verifyCmd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	corpus := fs.String("corpus", ".", "corpus root")
-	reference := fs.String("reference", "", "reference index directory to diff against (e.g. Hugo's lindenIndex) (required)")
+	reference := fs.String("reference", "", "reference index directory to diff against")
+	useHugo := fs.Bool("hugo", false, "build the reference by running Hugo (needs the hugo binary)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *reference == "" {
-		fmt.Fprintln(stderr, "lindexer: verify requires --reference (a reference index directory)")
+	if *reference == "" && !*useHugo {
+		fmt.Fprintln(stderr, "lindexer: verify requires --reference <dir> or --hugo")
 		return 2
+	}
+
+	// Resolve the reference: either a given directory, or built by running Hugo.
+	ref := *reference
+	opts := index.VerifyOpts{}
+	if *useHugo {
+		refDir, cleanup, err := hugoref.BuildReference(*corpus)
+		if err != nil {
+			fmt.Fprintf(stderr, "lindexer: %v\n", err)
+			return 1
+		}
+		defer cleanup()
+		ref = refDir
+		// Hugo emits vestigial per-page outputs we don't; compare our subset.
+		opts.IgnoreReferenceOnly = true
 	}
 
 	g, _, err := index.Build(*corpus)
@@ -191,7 +208,7 @@ func verifyCmd(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	discrepancies, err := index.VerifyDirs(ours, *reference)
+	discrepancies, err := index.VerifyDirsWithOpts(ours, ref, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "lindexer: verify failed: %v\n", err)
 		return 1

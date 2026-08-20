@@ -1,0 +1,19 @@
+{{- $taxonomies := slice -}}
+
+{{- range $key1, $value1 := .Site.Data -}}
+    {{- if ( eq (substr $key1 0 7) "L1-CONF") -}}
+      {{- range $key2, $value2 := $value1 -}}
+        {{- if and (eq $key2 "starred") (eq $value2 true) -}}
+
+          {{- $stringarr1 := split $key1 "TAX-" -}}
+          {{- $tax := index $stringarr1 1 -}}
+
+          {{- $taxonomies = $taxonomies | append $tax -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+{{- end -}}
+
+{{/*-----------------The core getting it all together------------- */}}
+
+{{- $taxonomies | jsonify (dict "prefix" " " "indent" "  ") -}}

@@ -108,3 +108,38 @@ func writeJSONFile(t *testing.T, path string, v any) {
 		t.Fatal(err)
 	}
 }
+
+func TestVerifyIgnoreReferenceOnlyAndBuiltins(t *testing.T) {
+	ours := t.TempDir()
+	ref := t.TempDir()
+
+	// Shared props file: ours lacks Hugo's built-ins; ref has them.
+	writeJSONFile(t, filepath.Join(ours, "_index_docs_with_props.json"),
+		map[string]any{"a.md": map[string]any{"title": "A", "tags": "note"}})
+	writeJSONFile(t, filepath.Join(ref, "_index_docs_with_props.json"),
+		map[string]any{"a.md": map[string]any{"title": "A", "tags": "note", "draft": false, "iscjklanguage": false}})
+
+	// Reference-only extra file + an unparseable per-page file (Hugo emits raw
+	// newlines in some per-page summaries).
+	writeJSONFile(t, filepath.Join(ref, "extra_page", "index.json"), map[string]any{"x": 1})
+	if err := os.MkdirAll(filepath.Join(ref, "bad_page"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ref, "bad_page", "index.json"), []byte("{\"summary\":\"line1\nline2\"}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := VerifyDirsWithOpts(ours, ref, VerifyOpts{IgnoreReferenceOnly: true})
+	if err != nil {
+		t.Fatalf("tolerant verify errored: %v", err)
+	}
+	if len(d) != 0 {
+		t.Fatalf("expected no discrepancies (built-ins normalized, ref-only ignored), got %+v", d)
+	}
+
+	// Strict mode: the reference-only file is reported (and the unparseable file errors).
+	dStrict, err := VerifyDirsWithOpts(ours, ref, VerifyOpts{})
+	if err == nil && len(dStrict) == 0 {
+		t.Fatal("strict mode should report reference-only files or fail on the unparseable one")
+	}
+}

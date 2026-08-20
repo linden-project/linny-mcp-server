@@ -1,0 +1,11 @@
+{{- $hugover := printf "%s" hugo.Version -}}
+{{-
+  dict
+  "product_name" "hugo-lindex"
+  "product_version" "0.0.1"
+  "hugo_version" $hugover
+  "index_dir" "TODO"
+  "content_dir" "TODO"
+  "config_dir" "TODO"
+  | jsonify (dict "prefix" " " "indent" "  ")
+-}}

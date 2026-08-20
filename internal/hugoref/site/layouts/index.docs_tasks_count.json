@@ -1,0 +1,31 @@
+{{- $docs := dict -}}
+
+{{- range (site.GetPage "/" ).Pages -}}
+
+  {{-  $open := 0 -}}
+  {{-  $closed := 0 -}}
+  {{-  $total := 0 -}}
+
+  {{- $file := split .RawContent "\n" -}}
+
+  {{- range $file -}}
+    {{- if gt (len ( findRE `- \[ \] ` . ) ) 0 -}}
+      {{- $open = add $open 1 -}}
+      {{- $total = add $total 1 -}}
+    {{- else if (index ( findRE `- \[x\] ` . ) 0 ) -}}
+      {{- $closed = add $closed 1 -}}
+      {{- $total = add $total 1 -}}
+    {{- else -}}
+    {{- end -}}
+  {{- end -}}
+
+
+  {{- if gt $total 0 -}}
+    {{- $docs = merge $docs (dict .File.LogicalName (dict "open" $open "closed" $closed "total" $total)) -}}
+  {{- end -}}
+
+{{- end -}}
+
+{{/*-----------------The core getting it all together------------- */}}
+
+{{- $docs | jsonify (dict "prefix" " " "indent" "  ") -}}

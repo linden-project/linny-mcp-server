@@ -5,10 +5,14 @@ these are implemented; each is a conscious deferral.
 
 ## Indexer / format
 
-- **`verify_index` — diff our JSON against Hugo.** The safety net for the "own index"
-  decision: run Hugo's indexer and ours over the same corpus and diff the JSON
-  (arrays as sets; ignore Hugo's `"TODO"` placeholders and `product_*`). The synthetic
-  corpus already emits a Hugo config for this. (Epic E0203 / E0504.)
+- **Hugo/index drift is a known, surfaced divergence.** `lindexer verify --hugo`
+  runs the real Hugo reference (vendored layouts in `internal/hugoref`) and diffs ours
+  against it; every load-bearing file matches, and the one accepted divergence is the
+  L1 term-config index — Hugo emits `{}` for the singular≠plural taxonomies (`tag`,
+  `project`) where its data-key lookup fails, while ours embeds the L2 config. A future
+  step could reconcile that lookup (spec §13 Q7) or teach the synthetic generator to
+  produce Hugo-resolvable L2 config filenames. A `verify_index`-style report over
+  `--hugo` in CI is already wired via the coverage check.
 - **Incremental updates via `fsnotify`.** Today every write does a full rebuild
   (cheap at ~5k notes). A watch mode would update incrementally. (Epic E0204.)
 - **Multi-content-dir support.** The tools assume `content/`; resolve it from the

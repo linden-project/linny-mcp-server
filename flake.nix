@@ -70,7 +70,8 @@
           # below the 70% floor. git is on PATH so the git-backed tests run.
           coverage = pkgs.linny-mcp.overrideAttrs (old: {
             pname = "linny-mcp-coverage";
-            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.git ];
+            # git for the history/gitsafe tests; hugo for the verify round-trip.
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.git pkgs.hugo ];
             doCheck = false;
             buildPhase = ''
               runHook preBuild

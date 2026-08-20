@@ -1,0 +1,12 @@
+{{- $docs := dict -}}
+
+{{- range (site.GetPage "/" ).Pages }}
+  {{- if .Param "title" -}}
+   {{- $doc := dict .File.LogicalName .Params -}}
+   {{- $docs = merge $docs (dict .File.LogicalName (.Param "title")) -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*-----------------The core getting it all together------------- */}}
+
+{{- $docs | jsonify (dict "prefix" " " "indent" "  ") -}}

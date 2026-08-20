@@ -1,0 +1,7 @@
+{{- $minHugoVersion := "0.123.0" }}
+{{- if lt hugo.Version $minHugoVersion }}
+  {{- errorf "Something requires Hugo v%s or later." $minHugoVersion }}
+{{- end }}
+
+<h1> Welcome to your Linny Notes Boilerplate </h1>
+

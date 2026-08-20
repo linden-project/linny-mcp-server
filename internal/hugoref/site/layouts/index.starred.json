@@ -1,0 +1,12 @@
+{{- $starred := slice -}}
+
+{{- range (site.GetPage "/" ).Pages }}
+  {{- if eq (.Param "starred") true -}}
+    {{- $stardoc := .File.LogicalName -}}
+    {{- $starred = $starred | append $stardoc -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*-----------------The core getting it all together------------- */}}
+
+{{- $starred | jsonify (dict "prefix" " " "indent" "  ") -}}

@@ -1,0 +1,9 @@
+{{- $taxonomies := slice -}}
+
+{{ range $taxonomyname, $taxonomy := .Site.Taxonomies }}
+  {{- $taxonomies = $taxonomies | append $taxonomyname -}}
+{{- end -}}
+
+{{/*-----------------The core getting it all together------------- */}}
+
+{{- $taxonomies | jsonify (dict "prefix" " " "indent" "  ") -}}

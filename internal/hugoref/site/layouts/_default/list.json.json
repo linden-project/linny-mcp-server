@@ -1,0 +1,30 @@
+{{- with eq .Kind  "taxonomy" -}}
+  {{- $docs := dict -}}
+  {{- $term := "" -}}
+  {{- $taxname := $.Data.Singular -}}
+
+  {{- range $.Data.Terms.Alphabetical -}}
+
+    {{- $term = .Name -}}
+
+    {{- $taxconf := dict -}}
+    {{- range $key1, $value1 := $.Site.Data -}}
+      {{- $conf := printf "L2-CONF-TAX-%s-TRM-%s" $taxname $term -}}
+      {{- if (eq (replace $key1 " " "-") $conf) -}}
+        {{- $taxconf = $value1 -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- $docs = merge $docs (dict .Name $taxconf ) -}}
+  {{- end -}}
+  {{- $docs | jsonify (dict "prefix" "" "indent" "  ") -}}
+{{- end -}}
+
+{{- with eq .Kind  "term" -}}
+  {{- $docs := slice -}}
+  {{- range $.Data.Pages -}}
+    {{- $docs = $docs | append .Page.File.LogicalName -}}
+  {{- end -}}
+
+  {{- $docs | jsonify (dict "prefix" "" "indent" "  ") -}}
+{{- end -}}

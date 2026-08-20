@@ -1,0 +1,71 @@
+title: "Hugo as Linden Indexer"
+disableKinds: ["RSS", "section", "sitemap", "robotsTXT", "404"]
+
+contentDir: content
+dataDir: lindenConfig
+publishDir: lindenIndex
+
+#permalinks:
+#  /: /_documents/:filename/
+
+taxonomies:
+  tag: "tags"
+  project: "projects"
+  customer: "customer"
+  type: "type"
+  subject: "subject"
+
+outputs:
+  page:
+  - json
+  term:
+  - json
+  taxonomy:
+  - json
+  home:
+  - html
+  - starred
+  - docs_with_props
+  - docs_with_title
+  - indexer_info
+  - docs_tasks_count
+  - taxonomies
+  - taxonomies_starred
+  - terms_starred
+
+outputFormats:
+  html:
+    mediaType: text/html
+
+  starred:
+    mediaType: "application/json"
+    baseName: "_index_docs_starred"
+    path: "/"
+  docs_with_props:
+    mediaType: "application/json"
+    baseName: "_index_docs_with_props"
+    path: "/"
+  docs_with_title:
+    mediaType: "application/json"
+    baseName: "_index_docs_with_title"
+    path: "/"
+  indexer_info:
+    mediaType: "application/json"
+    baseName: "_indexer_info"
+    path: "/"
+  taxonomies:
+    mediaType: "application/json"
+    baseName: "_index_taxonomies"
+    path: "/"
+  taxonomies_starred:
+    mediaType: "application/json"
+    baseName: "_index_taxonomies_starred"
+    path: "/"
+  terms_starred:
+    mediaType: "application/json"
+    baseName: "_index_terms_starred"
+    path: "/"
+  docs_tasks_count:
+    mediaType: "application/json"
+    baseName: "_index_docs_tasks_count"
+    path: "/"
