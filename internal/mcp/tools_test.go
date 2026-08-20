@@ -34,7 +34,7 @@ func testReader(t *testing.T, scopes ...string) *reader {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return newReader(store, redact.New(), ss)
+	return newReader(store, redact.New(), ss, root)
 }
 
 func TestGetDocRedactsSecrets(t *testing.T) {

@@ -2,29 +2,43 @@ package mcp
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/linden-project/linny-mcp-server/internal/authz"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
+	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
 	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
+
+// contentDir is the corpus subdirectory holding records. It matches the Hugo
+// template / synthetic generator; multi-content-dir support is a later refinement.
+const contentDir = "content"
 
 // reader holds everything a read tool needs, bound to one caller's scope. The
 // scope is pre-compiled to a SQL subquery (deny-by-default) so every query
 // filters in SQL; content fields are passed through the redactor on the way out.
 type reader struct {
-	store     *index.Store
-	red       *redact.Redactor
-	scopeSQL  string
-	scopeArgs []any
+	store      *index.Store
+	red        *redact.Redactor
+	scopeSQL   string
+	scopeArgs  []any
+	corpusPath string // for git history tools; may be empty
 }
 
 // newReader builds a reader for a scope set.
-func newReader(store *index.Store, red *redact.Redactor, ss *authz.ScopeSet) *reader {
+func newReader(store *index.Store, red *redact.Redactor, ss *authz.ScopeSet, corpusPath string) *reader {
 	sql, args := ss.ReadableFilenamesSQL()
-	return &reader{store: store, red: red, scopeSQL: sql, scopeArgs: args}
+	return &reader{store: store, red: red, scopeSQL: sql, scopeArgs: args, corpusPath: corpusPath}
+}
+
+// readable reports whether the caller's scope permits reading slug.
+func (rd *reader) readable(slug string) (bool, error) {
+	_, ok, err := rd.store.GetDocScoped(slug, rd.scopeSQL, rd.scopeArgs)
+	return ok, err
 }
 
 // buildToolServer returns an MCP server exposing the read tools bound to rd.
@@ -54,6 +68,19 @@ func buildToolServer(rd *reader) *mcpsdk.Server {
 		Name:        "docs_by_term",
 		Description: "List the documents tagged with a given taxonomy term.",
 	}, rd.docsByTerm)
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "history",
+		Description: "Git commit history for a document (newest first).",
+	}, rd.history)
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "diff",
+		Description: "Diff a document between a git ref and the working tree.",
+	}, rd.diff)
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "changed_since",
+		Description: "List documents changed since a date or revision (readable ones only).",
+	}, rd.changedSince)
 
 	return srv
 }
@@ -169,4 +196,95 @@ func (rd *reader) docsByTerm(_ context.Context, _ *mcpsdk.CallToolRequest, in do
 		return nil, docsByTermOut{}, err
 	}
 	return nil, docsByTermOut{Docs: docs}, nil
+}
+
+// --- history tool types ---
+
+type historyIn struct {
+	Slug  string `json:"slug" jsonschema:"the document slug/filename"`
+	Limit int    `json:"limit,omitempty" jsonschema:"maximum number of commits (default 50)"`
+}
+type historyOut struct {
+	Found   bool             `json:"found"`
+	Commits []gitsafe.Commit `json:"commits,omitempty"`
+}
+
+type diffIn struct {
+	Slug string `json:"slug" jsonschema:"the document slug/filename"`
+	Ref  string `json:"ref" jsonschema:"a git ref to diff against (e.g. HEAD~1); must not begin with '-'"`
+}
+type diffOut struct {
+	Found bool   `json:"found"`
+	Diff  string `json:"diff,omitempty"`
+}
+
+type changedSinceIn struct {
+	Since string `json:"since" jsonschema:"a date or revision (e.g. 2024-01-01); must not begin with '-'"`
+}
+type changedSinceOut struct {
+	Docs []string `json:"docs"`
+}
+
+// --- history handlers ---
+
+func (rd *reader) history(_ context.Context, _ *mcpsdk.CallToolRequest, in historyIn) (*mcpsdk.CallToolResult, historyOut, error) {
+	ok, err := rd.readable(in.Slug)
+	if err != nil {
+		return nil, historyOut{}, err
+	}
+	if !ok {
+		return nil, historyOut{Found: false}, nil // denied == missing
+	}
+	commits, err := gitsafe.History(rd.corpusPath, filepath.Join(contentDir, in.Slug), in.Limit)
+	if err != nil {
+		return nil, historyOut{}, err
+	}
+	for i := range commits {
+		commits[i].Subject, _ = rd.red.Redact(commits[i].Subject)
+	}
+	return nil, historyOut{Found: true, Commits: commits}, nil
+}
+
+func (rd *reader) diff(_ context.Context, _ *mcpsdk.CallToolRequest, in diffIn) (*mcpsdk.CallToolResult, diffOut, error) {
+	ok, err := rd.readable(in.Slug)
+	if err != nil {
+		return nil, diffOut{}, err
+	}
+	if !ok {
+		return nil, diffOut{Found: false}, nil
+	}
+	raw, err := gitsafe.Diff(rd.corpusPath, filepath.Join(contentDir, in.Slug), in.Ref)
+	if err != nil {
+		return nil, diffOut{}, err
+	}
+	redacted, _ := rd.red.Redact(raw)
+	return nil, diffOut{Found: true, Diff: redacted}, nil
+}
+
+func (rd *reader) changedSince(_ context.Context, _ *mcpsdk.CallToolRequest, in changedSinceIn) (*mcpsdk.CallToolResult, changedSinceOut, error) {
+	paths, err := gitsafe.ChangedSince(rd.corpusPath, in.Since)
+	if err != nil {
+		return nil, changedSinceOut{}, err
+	}
+	out := changedSinceOut{Docs: []string{}}
+	seen := map[string]bool{}
+	prefix := contentDir + "/"
+	for _, p := range paths {
+		if !strings.HasPrefix(p, prefix) || !strings.HasSuffix(p, ".md") {
+			continue
+		}
+		slug := p[len(prefix):]
+		if seen[slug] {
+			continue
+		}
+		seen[slug] = true
+		ok, err := rd.readable(slug)
+		if err != nil {
+			return nil, changedSinceOut{}, err
+		}
+		if ok {
+			out.Docs = append(out.Docs, slug)
+		}
+	}
+	return nil, out, nil
 }

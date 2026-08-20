@@ -20,6 +20,17 @@
 | `terms`           | `taxonomy: string`                   | `{terms: [string]}` — only terms with a readable document |
 | `docs_by_term`    | `taxonomy: string`, `term: string`   | `{docs: [filename]}` — readable members only |
 
+## History (v1 — shipped)
+
+All history tools are scope-aware (history/diff of a denied document reports
+not-found) and redact free-text output (commit subjects, diff hunks).
+
+| Tool | Arguments | Returns |
+|------------------|--------------------------------------|------------------------------------------------|
+| `history`        | `slug: string`, `limit?: int`        | `{found, commits: [{hash, author, date, subject}]}` — newest first |
+| `diff`           | `slug: string`, `ref: string`        | `{found, diff}` — ref-vs-working diff; `ref` must not begin with `-` |
+| `changed_since`  | `since: string`                      | `{docs: [slug]}` — changed & readable; `since` must not begin with `-` |
+
 ## Planned (not yet shipped)
 
 Recorded so names are reserved and stable when implemented:
@@ -30,10 +41,10 @@ Recorded so names are reserved and stable when implemented:
 - `open_items(project)` — open task-list items for a project.
 - Write tools (quarantine-default): `create_doc`, `set_front_matter`,
   `unset_front_matter`, `append_to_doc`, `archive`.
-- History: `history(doc)`, `diff(doc, ref)`, `changed_since(date)`.
 - Operational: `sync_status()`, `verify_index()`.
 
 ## Change log
 
 - **v1** (2026-08-20): initial read/navigate surface — `search`, `get_doc`,
-  `list_taxonomies`, `terms`, `docs_by_term`.
+  `list_taxonomies`, `terms`, `docs_by_term`; history tools — `history`, `diff`,
+  `changed_since`.

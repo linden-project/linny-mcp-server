@@ -27,10 +27,11 @@ type HealthStatus struct {
 // MCP endpoint /mcp. When Store is set, /mcp serves the MCP read tools; when it
 // is nil, /mcp is an authenticated placeholder (used by health-only setups).
 type Server struct {
-	Auth     auth.Authenticator
-	Health   func() HealthStatus
-	Store    *index.Store
-	Redactor *redact.Redactor
+	Auth       auth.Authenticator
+	Health     func() HealthStatus
+	Store      *index.Store
+	Redactor   *redact.Redactor
+	CorpusPath string // notebook working tree, for the git history tools
 }
 
 // Handler returns the composed HTTP handler.
@@ -81,7 +82,7 @@ func (s *Server) mcpHandler() http.Handler {
 		if err != nil {
 			return nil // invalid scopes -> 400 from the transport
 		}
-		return buildToolServer(newReader(s.Store, red, ss))
+		return buildToolServer(newReader(s.Store, red, ss, s.CorpusPath))
 	}
 	return mcpsdk.NewStreamableHTTPHandler(getServer, nil)
 }

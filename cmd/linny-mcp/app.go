@@ -154,9 +154,10 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 
 	guard := gitsafe.NewGuard(nb.CorpusPath, cfg.ReadOnly)
 	srv := &mcp.Server{
-		Auth:     auth.NewStaticTokenAuthenticator(records),
-		Health:   healthFromGuard(guard),
-		Redactor: redact.New(),
+		Auth:       auth.NewStaticTokenAuthenticator(records),
+		Health:     healthFromGuard(guard),
+		Redactor:   redact.New(),
+		CorpusPath: nb.CorpusPath,
 	}
 	// Attach the index store (read tools) when a state dir is configured. The
 	// store is created if absent (an empty store simply returns no results until
