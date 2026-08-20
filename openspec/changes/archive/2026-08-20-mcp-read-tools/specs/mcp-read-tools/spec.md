@@ -35,8 +35,8 @@ SHALL be indistinguishable from a missing one.
 
 ### Requirement: Every tool response is redacted
 
-All content returned by read tools (search snippets and titles, document bodies and
-front matter) SHALL pass through the egress redactor before being returned.
+Read tools SHALL pass all returned content — search snippets and titles, document
+bodies and front matter — through the egress redactor before returning it.
 
 #### Scenario: Secret in a readable note is redacted
 
