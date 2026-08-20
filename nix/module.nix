@@ -119,6 +119,17 @@ in
       default = false;
       description = "Force read-only mode regardless of git working-tree state.";
     };
+
+    ntfyTopicURL = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "https://ntfy.example.com/linny-mcp";
+      description = ''
+        Self-hosted ntfy topic URL for out-of-band degraded-mode alerts. A plain
+        POST target (not a secret), so it is fine in a Nix option. Leave null to
+        disable alerting.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -138,6 +149,7 @@ in
         logLevel = cfg.logLevel;
         readOnly = cfg.readOnly;
         publicHostname = if cfg.publicHostname == null then "" else cfg.publicHostname;
+        ntfyTopicURL = if cfg.ntfyTopicURL == null then "" else cfg.ntfyTopicURL;
         notebooks = map (nb: {
           name = nb.name;
           corpusPath = toString nb.corpusPath;
@@ -166,14 +178,39 @@ in
         description = "linny-mcp MCP server";
         wantedBy = [ "multi-user.target" ];
         after = [ "network.target" ];
-        # Minimal serviceConfig. Full systemd hardening lands in milestone 06.
         serviceConfig = {
           ExecStart = lib.escapeShellArgs [ (lib.getExe cfg.package) "serve" "--config" configFile ];
           User = cfg.user;
           Group = cfg.group;
           StateDirectory = "linny-mcp";
-          ReadWritePaths = rwPaths;
           Restart = "on-failure";
+
+          # Hardening (briefing §9). The server only needs to read the corpus and
+          # write its state dir + the corpus; everything else is sealed off.
+          ProtectSystem = "strict";
+          ReadWritePaths = rwPaths;
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateDevices = true;
+          NoNewPrivileges = true;
+          RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+          SystemCallFilter = [ "@system-service" "~@privileged" ];
+          SystemCallArchitectures = "native";
+          CapabilityBoundingSet = [ "" ];
+          AmbientCapabilities = [ "" ];
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          ProtectKernelTunables = true;
+          ProtectKernelModules = true;
+          ProtectKernelLogs = true;
+          ProtectControlGroups = true;
+          ProtectClock = true;
+          ProtectProc = "invisible";
+          ProcSubset = "pid";
+          RestrictNamespaces = true;
+          RestrictSUIDSGID = true;
+          RestrictRealtime = true;
+          UMask = "0077";
         };
       };
     }
