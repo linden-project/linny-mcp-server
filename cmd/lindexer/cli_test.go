@@ -76,3 +76,10 @@ func TestVerifyCLIRequiresReference(t *testing.T) {
 		t.Fatalf("verify without --reference exit=%d, want 2", code)
 	}
 }
+
+func TestWatchRequiresStateDir(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := Run([]string{"lindexer", "watch", "--corpus", "."}, &out, &errOut); code != 2 {
+		t.Fatalf("watch without --state-dir exit=%d, want 2", code)
+	}
+}

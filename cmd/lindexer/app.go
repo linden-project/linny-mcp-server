@@ -6,12 +6,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/index"
@@ -29,7 +32,7 @@ Commands:
   build       Full rebuild of the index from a corpus
   search      Full-text search a persisted index store
   verify      Diff our JSON index against a reference (Hugo) index tree
-  watch       Incrementally update the index via fsnotify (not yet implemented)
+  watch       Rebuild the index on corpus changes (fsnotify, debounced)
   version     Print the version and exit
 
 Run 'lindexer <command> -h' for a command's flags.
@@ -52,8 +55,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "verify":
 		return verifyCmd(args[2:], stdout, stderr)
 	case "watch":
-		fmt.Fprintf(stderr, "lindexer: %s is not implemented yet\n", args[1])
-		return 1
+		return watchCmd(args[2:], stdout, stderr)
 	case "help", "--help", "-h":
 		fmt.Fprint(stdout, usage)
 		return 0
@@ -203,4 +205,55 @@ func verifyCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "lindexer: %d discrepancy(ies) vs reference\n", len(discrepancies))
 	return 1
+}
+
+func watchCmd(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("watch", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	corpus := fs.String("corpus", ".", "corpus root")
+	stateDir := fs.String("state-dir", "", "state dir to persist the store (required)")
+	indexRoot := fs.String("index", "", "if set, also re-emit JSON here on each refresh")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *stateDir == "" {
+		fmt.Fprintln(stderr, "lindexer: watch requires --state-dir")
+		return 2
+	}
+
+	refresh := func() error {
+		g, report, err := index.Build(*corpus)
+		if err != nil {
+			return err
+		}
+		if err := persistStore(g, *stateDir); err != nil {
+			return err
+		}
+		if *indexRoot != "" {
+			if err := index.Emit(g, *indexRoot); err != nil {
+				return err
+			}
+		}
+		fmt.Fprintf(stdout, "refreshed index: %d records\n", report.RecordCount)
+		return nil
+	}
+
+	if err := refresh(); err != nil { // build once up front
+		fmt.Fprintf(stderr, "lindexer: initial build failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "watching %s for changes (Ctrl-C to stop)\n", *corpus)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	err := index.Watch(ctx, *corpus, 0, func() {
+		if err := refresh(); err != nil {
+			fmt.Fprintf(stderr, "lindexer: refresh failed: %v\n", err)
+		}
+	})
+	if err != nil && err != context.Canceled {
+		fmt.Fprintf(stderr, "lindexer: watch error: %v\n", err)
+		return 1
+	}
+	return 0
 }

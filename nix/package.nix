@@ -14,7 +14,7 @@ buildGoModule {
 
   # Vendor hash for the Go module set. Update with the fake-hash-then-read dance
   # whenever go.mod dependencies change.
-  vendorHash = "sha256-TC877Kg9iyPlFAqVUeAWcP5kmEVtYvMjIJ7a9Xea+6w=";
+  vendorHash = "sha256-zSC/llsOoozAdCff+Utw9ErwDVhzUhGY1P3Sd89xWLg=";
 
   subPackages = [ "cmd/linny-mcp" "cmd/lindexer" ];
 
