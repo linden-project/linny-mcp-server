@@ -1,0 +1,22 @@
+# Minimal, non-pedantic linter set for the scaffold. Tightened per-epic as real
+# code lands. Kept intentionally small so legitimate stubs do not trip lint.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+  settings:
+    errcheck:
+      # Writes to os.Stdout/os.Stderr in CLI code do not need error checks.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+
+run:
+  timeout: 5m

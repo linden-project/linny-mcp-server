@@ -30,3 +30,19 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Nix / direnv build artifacts
+result
+result-*
+.direnv/
+
+# Disposable index / state (the SQLite+FTS5 index is a cache, NEVER committed)
+.linny_temp/
+/state/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# Generated synthetic test corpus (regenerated on demand)
+/testdata-gen/
