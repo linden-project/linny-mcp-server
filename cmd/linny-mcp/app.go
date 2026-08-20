@@ -16,6 +16,7 @@ import (
 	"github.com/linden-project/linny-mcp-server/internal/auth"
 	"github.com/linden-project/linny-mcp-server/internal/buildinfo"
 	"github.com/linden-project/linny-mcp-server/internal/config"
+	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
 	"github.com/linden-project/linny-mcp-server/internal/mcp"
 )
 
@@ -97,13 +98,13 @@ func splitScopes(s string) []string {
 func serveCmd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	_ = fs.String("corpus", ".", "corpus root")
+	corpus := fs.String("corpus", ".", "corpus root")
 	_ = fs.String("state-dir", "", "disposable index/state directory")
 	listen := fs.String("listen", "127.0.0.1", "listen address (loopback/mesh only, unless override)")
 	port := fs.Int("port", 8765, "listen port")
 	tokensFile := fs.String("tokens-file", "", "path to the bearer token file (required)")
 	_ = fs.String("log-level", "info", "log level")
-	_ = fs.Bool("read-only", false, "force read-only mode")
+	readOnly := fs.Bool("read-only", false, "force read-only mode")
 	override := fs.Bool("i-know-what-im-doing", false, "allow binding a public address")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -123,12 +124,38 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	srv := &mcp.Server{Auth: auth.NewStaticTokenAuthenticator(records)}
+	guard := gitsafe.NewGuard(*corpus, *readOnly)
+	srv := &mcp.Server{
+		Auth:   auth.NewStaticTokenAuthenticator(records),
+		Health: healthFromGuard(guard),
+	}
 	addr := net.JoinHostPort(*listen, fmt.Sprintf("%d", *port))
-	fmt.Fprintf(stdout, "linny-mcp %s listening on %s (%d token(s) loaded)\n", buildinfo.Version, addr, len(records))
+	if st := guard.State(); !st.Clean {
+		fmt.Fprintf(stderr, "linny-mcp: WARNING starting in degraded read-only mode: %s\n", st.Reason)
+	}
+	fmt.Fprintf(stdout, "linny-mcp %s listening on %s (%d token(s) loaded, read-only=%t)\n", buildinfo.Version, addr, len(records), *readOnly)
 	if err := http.ListenAndServe(addr, srv.Handler()); err != nil { //nolint:gosec // TLS terminates upstream
 		fmt.Fprintf(stderr, "linny-mcp: server error: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+// healthFromGuard adapts a git-safety guard to the health-status provider the
+// HTTP server expects.
+func healthFromGuard(g *gitsafe.Guard) func() mcp.HealthStatus {
+	return func() mcp.HealthStatus {
+		st := g.State()
+		degraded := !st.Clean || g.ForcedReadOnly()
+		status := "ok"
+		if degraded {
+			status = "degraded"
+		}
+		return mcp.HealthStatus{
+			Status:     status,
+			Degraded:   degraded,
+			Conflicted: st.Conflicted,
+			Conflicts:  st.ConflictedPaths,
+		}
+	}
 }

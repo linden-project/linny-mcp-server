@@ -90,10 +90,13 @@ static bearer tokens (no OAuth/OIDC/Zitadel); existing external git-sync stays a
 the server never takes ownership of git; embeddings (if ever) local-only and out of
 scope for v1; plain-nix flake (no flake-utils).
 
+## Decisions from the user (2026-08-20)
+- **Public hostname is configuration, never a constant.** Exposed as a config value
+  / NixOS option (`publicHostname`), defaulting unset. No hostname is hardcoded.
+- **Multi-notebook support is designed in now.** Config models N notebooks (each with
+  its own corpus path, state dir, and git-safety guard) even though v1 may serve one.
+- Spec version resolved to **linden-index-spec v0.3.0**.
+
 ## Open questions (surface, don't guess)
-1. Exact public hostname (`secondbrain.pimsnel.com`? — treat as config, not constant).
-2. Multi-notebook support (one corpus or several?). Recommend designing config for
-   N notebooks even if v1 serves one.
-3. Spec version number (`linden-index-spec v0.3`?).
-4. Final MCP tool names (tool names are an API — version them in `docs/tools.md`).
-5. Which git-sync script (affects whether we read its state or inspect the tree).
+1. Final MCP tool names (tool names are an API — version them in `docs/tools.md`).
+2. Which git-sync script (affects whether we read its state or inspect the tree).
