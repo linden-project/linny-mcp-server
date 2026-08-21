@@ -6,5 +6,6 @@
 | `tools.md`               | v1 shipped  | The versioned MCP tool surface. Tool names are an API. |
 | `future.md`              | done        | Out-of-scope work: semantic YAML merge driver, embeddings, remaining tools. |
 | `deploy-mipnix.md`       | done        | Deployment topology and mipnix-side wiring (documentation only). |
+| `local-testing.md`       | done        | Kick-the-tires quickstart on a throwaway test corpus. |
 
 See `openspec/` for the change proposals that produce each of these.

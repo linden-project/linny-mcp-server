@@ -46,3 +46,6 @@ result-*
 
 # Generated synthetic test corpus (regenerated on demand)
 /testdata-gen/
+
+# Local build output
+/bin/
