@@ -7,7 +7,10 @@
 
   outputs = { self, nixpkgs }:
     let
-      version = "0.1.0-alpha";
+      # Single source of truth: the VERSION file (scripts/release.sh bumps it).
+      # fileContents strips the trailing newline; the value is stamped into the
+      # binary via nix/package.nix ldflags -> internal/buildinfo.Version.
+      version = nixpkgs.lib.fileContents ./VERSION;
 
       # Supported systems, enumerated explicitly (plain nix, no flake-utils).
       systems = [ "x86_64-linux" "aarch64-linux" ];
@@ -38,6 +41,8 @@
               pkgs.gopls
               pkgs.golangci-lint
               pkgs.hugo # needed by the indexer `verify` path (diff vs Hugo)
+              pkgs.gum # scripts/release.sh bump chooser
+              pkgs.gh # scripts/release.sh cuts the GitHub release
             ];
           };
         });

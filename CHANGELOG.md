@@ -31,5 +31,12 @@ semantic versioning once it leaves alpha.
 ### Changed
 - Index L1 term-config lookup and the starred indexes are keyed by the singular
   taxonomy name, matching the Hugo reference (zero drift).
+- The version now comes from a `VERSION` file (single source of truth), read by the
+  flake and reported by `version`, `serve`, `_indexer_info`, and the MCP handshake.
+
+### Added
+- Release process: `scripts/release.sh` (gated preflight → `gum` bump → `VERSION`
+  + CHANGELOG roll → `jj` commit → `git` tag → `gh release`) and `RELEASING.md`;
+  `gum`/`gh` in the dev shell.
 
 [Unreleased]: https://github.com/linden-project/linny-mcp-server/commits/main
