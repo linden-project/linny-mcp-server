@@ -49,3 +49,7 @@ result-*
 
 # Local build output
 /bin/
+
+# Oversized raw brand sheet — kept on disk as a crop source, not committed
+# (see openspec change add-readme-branding: a shrunk reference goes under docs/brand/)
+docs/linny-mcp-server-branding.png
