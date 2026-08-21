@@ -8,6 +8,9 @@ type Policy struct {
 	// QuarantineTaxonomy/Term is where agent-created documents land by default.
 	QuarantineTaxonomy string
 	QuarantineTerm     string
+	// Disabled turns off quarantine-on-create (agent writes go straight in). This
+	// removes a hostile-corpus defense; use only when you trust the client.
+	Disabled bool
 	// confirmTools are operations that require out-of-band confirmation and must
 	// not be performed by an in-band tool call alone.
 	confirmTools map[string]bool
@@ -30,7 +33,7 @@ func DefaultPolicy() Policy {
 // key becomes a one-element list; a scalar becomes a two-element list; a list
 // gains the term if absent. Front matter is mutated in place.
 func (p Policy) ApplyQuarantine(front map[string]any) {
-	if front == nil {
+	if front == nil || p.Disabled {
 		return
 	}
 	existing, ok := front[p.QuarantineTaxonomy]

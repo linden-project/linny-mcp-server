@@ -63,7 +63,7 @@ func TestLoadRoundTrip(t *testing.T) {
 }
 
 func TestFromFlagsSingleNotebook(t *testing.T) {
-	cfg, err := FromFlags("127.0.0.1", 8765, "/tokens", "info", false, "/corpus", "/state")
+	cfg, err := FromFlags("127.0.0.1", 8765, "/tokens", "info", false, false, "/corpus", "/state")
 	if err != nil {
 		t.Fatal(err)
 	}

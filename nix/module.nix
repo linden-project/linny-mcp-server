@@ -120,6 +120,16 @@ in
       description = "Force read-only mode regardless of git working-tree state.";
     };
 
+    quarantine = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Quarantine agent-created documents (they land in the quarantine term
+        instead of going straight in). Keep enabled in production — disabling it
+        removes a hostile-corpus defense.
+      '';
+    };
+
     ntfyTopicURL = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -148,6 +158,7 @@ in
         tokensFile = toString cfg.tokensFile;
         logLevel = cfg.logLevel;
         readOnly = cfg.readOnly;
+        disableQuarantine = !cfg.quarantine;
         publicHostname = if cfg.publicHostname == null then "" else cfg.publicHostname;
         ntfyTopicURL = if cfg.ntfyTopicURL == null then "" else cfg.ntfyTopicURL;
         notebooks = map (nb: {

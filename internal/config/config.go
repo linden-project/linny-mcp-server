@@ -25,8 +25,12 @@ type Config struct {
 	PublicHostname string `json:"publicHostname"`
 	// NtfyTopicURL, when set, receives out-of-band degraded-mode alerts (a plain
 	// HTTP POST target — no secret, safe in a Nix option).
-	NtfyTopicURL string     `json:"ntfyTopicURL"`
-	Notebooks    []Notebook `json:"notebooks"`
+	NtfyTopicURL string `json:"ntfyTopicURL"`
+	// DisableQuarantine turns off quarantine-on-create (agent writes go straight in
+	// instead of landing in the quarantine term). Off by default — enabling it
+	// removes a hostile-corpus defense.
+	DisableQuarantine bool       `json:"disableQuarantine"`
+	Notebooks         []Notebook `json:"notebooks"`
 }
 
 // Defaults returns a config with the non-notebook defaults filled in.
@@ -56,13 +60,14 @@ func Load(path string) (Config, error) {
 
 // FromFlags builds a single-notebook configuration named "default" from the
 // individual serve flags. It is the no-`--config` convenience path.
-func FromFlags(listen string, port int, tokensFile, logLevel string, readOnly bool, corpusPath, stateDir string) (Config, error) {
+func FromFlags(listen string, port int, tokensFile, logLevel string, readOnly, disableQuarantine bool, corpusPath, stateDir string) (Config, error) {
 	cfg := Defaults()
 	cfg.ListenAddress = listen
 	cfg.Port = port
 	cfg.TokensFile = tokensFile
 	cfg.LogLevel = logLevel
 	cfg.ReadOnly = readOnly
+	cfg.DisableQuarantine = disableQuarantine
 	cfg.Notebooks = []Notebook{{Name: "default", CorpusPath: corpusPath, StateDir: stateDir}}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

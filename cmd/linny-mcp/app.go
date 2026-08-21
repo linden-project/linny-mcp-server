@@ -123,6 +123,7 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 	tokensFile := fs.String("tokens-file", "", "path to the bearer token file")
 	logLevel := fs.String("log-level", "info", "log level")
 	readOnly := fs.Bool("read-only", false, "force read-only mode")
+	noQuarantine := fs.Bool("no-quarantine", false, "disable quarantine-on-create (agent writes go straight in; removes a hostile-corpus defense)")
 	override := fs.Bool("i-know-what-im-doing", false, "allow binding a public address")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -140,7 +141,7 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "linny-mcp: serve requires --tokens-file (a PATH, never a token value) or --config")
 			return 2
 		}
-		if cfg, err = config.FromFlags(*listen, *port, *tokensFile, *logLevel, *readOnly, *corpus, *stateDir); err != nil {
+		if cfg, err = config.FromFlags(*listen, *port, *tokensFile, *logLevel, *readOnly, *noQuarantine, *corpus, *stateDir); err != nil {
 			fmt.Fprintf(stderr, "linny-mcp: %v\n", err)
 			return 1
 		}
@@ -173,6 +174,10 @@ func serveCmd(args []string, stdout, stderr io.Writer) int {
 		CorpusPath: nb.CorpusPath,
 		Guard:      guard,
 		Policy:     defense.DefaultPolicy(),
+	}
+	if cfg.DisableQuarantine {
+		srv.Policy.Disabled = true
+		fmt.Fprintln(stderr, "linny-mcp: WARNING quarantine disabled — agent writes are NOT quarantined")
 	}
 	// Write tools require an audit log outside the corpus (in the state dir).
 	// Without a state dir, or in read-only mode, writes stay unavailable.

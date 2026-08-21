@@ -261,3 +261,25 @@ func TestSyncStatusTool(t *testing.T) {
 		t.Fatalf("expected content/boom.md in conflicts, got %v", ss.Conflicts)
 	}
 }
+
+func TestCreateDocNoQuarantineWhenDisabled(t *testing.T) {
+	f := newWriteFixture(t, "read:*", "write:inbox")
+	f.server.Policy.Disabled = true
+	w := newWriter(f.server, f.w.scope, "tester")
+
+	_, out, err := w.createDoc(context.Background(), nil, createDocIn{Title: "Straight In", Body: "hi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.OK {
+		t.Fatalf("create failed: %+v", out)
+	}
+	if out.Quarantined {
+		t.Fatal("doc must NOT be quarantined when the policy is disabled")
+	}
+	for _, m := range out.Membership {
+		if m.Taxonomy == "status" && m.Term == "agent-draft" {
+			t.Fatalf("unexpected quarantine membership: %+v", out.Membership)
+		}
+	}
+}

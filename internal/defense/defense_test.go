@@ -71,3 +71,16 @@ func TestDelimitWrapsAndNeutralizes(t *testing.T) {
 		t.Fatalf("expected exactly one begin marker: %q", out)
 	}
 }
+
+func TestApplyQuarantineDisabled(t *testing.T) {
+	p := DefaultPolicy()
+	p.Disabled = true
+	f := map[string]any{"title": "N"}
+	p.ApplyQuarantine(f)
+	if p.IsQuarantined(f) {
+		t.Fatalf("disabled policy must not quarantine, got %v", f)
+	}
+	if _, ok := f[p.QuarantineTaxonomy]; ok {
+		t.Fatalf("disabled policy must not touch front matter, got %v", f)
+	}
+}
