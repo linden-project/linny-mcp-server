@@ -41,17 +41,33 @@ if [[ ! "$cur" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
+# If the current VERSION has no tag yet, releasing it as-is (no bump) is an option —
+# this is how the first release (v<VERSION>) is cut.
+cur_untagged=false
+if ! git rev-parse -q --verify "refs/tags/v$cur" >/dev/null 2>&1; then
+  cur_untagged=true
+fi
+
 level="${1:-}"
 if [ -z "$level" ]; then
-  level="$(gum choose major minor patch)"
+  choices=()
+  $cur_untagged && choices+=("current")
+  choices+=(patch minor major)
+  level="$(gum choose "${choices[@]}")"
 fi
 
 IFS=. read -r major minor patch <<<"$cur"
 case "$level" in
+  current)
+    if ! $cur_untagged; then
+      echo "!! v$cur is already released; choose patch|minor|major." >&2
+      exit 1
+    fi
+    next="$cur" ;;
   major) next="$((major + 1)).0.0" ;;
   minor) next="${major}.$((minor + 1)).0" ;;
   patch) next="${major}.${minor}.$((patch + 1))" ;;
-  *) echo "!! bump level must be major|minor|patch (got '$level')" >&2; exit 1 ;;
+  *) echo "!! bump level must be current|major|minor|patch (got '$level')" >&2; exit 1 ;;
 esac
 
 echo ">> $cur -> $next ($level)"
