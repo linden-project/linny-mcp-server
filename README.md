@@ -1,8 +1,25 @@
+<p align="center">
+  <img src="assets/hero.webp" alt="Linny — the Linnaeus-inspired MCP server for structured knowledge" width="820">
+</p>
+
+<p align="center">
+  <strong>Connect. Classify. Empower.</strong><br>
+  <em>The Linnaeus-inspired MCP server for structured knowledge.</em>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license: MIT"></a>
+</p>
+
 # linny-mcp
 
 A single Go binary that exposes a private markdown corpus — a Hugo/front-matter
 based **Linny notebook** (thousands of flat `.md` files) — to AI agents over the
 **Model Context Protocol (MCP)**.
+
+Linny is named after **Carl Linnaeus**, the father of modern taxonomy: the notebook
+*is* a living taxonomy, and the Hugo indexer this project succeeds is nicknamed
+*Carl*.
 
 This repository is the PoC / alpha base. It is consumed downstream as a Nix flake
 input in [`mipnix`](https://github.com/mipmip/mipnix).

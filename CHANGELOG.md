@@ -34,6 +34,9 @@ semantic versioning once it leaves alpha.
   cuts the current untagged version without a bump); `gum`/`gh` in the dev shell.
 - **Docs** — the Linden Index Specification v0.3.0, `docs/tools.md`, `docs/future.md`,
   `docs/deploy-mipnix.md`, `docs/local-testing.md`, and `RELEASING.md`.
+- **Branding** — a Linnaeus-mascot hero banner in the README (with the "Connect.
+  Classify. Empower." tagline and a MIT license badge), and a `docs/brand/` reference
+  recording the palette and taglines.
 
 ### Changed
 - The version is sourced from a `VERSION` file (single source of truth), read by the

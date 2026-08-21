@@ -1,11 +1,11 @@
 ---
 # linny-mcp-server-dxwr
 title: add branding for the github pages
-status: todo
+status: in-progress
 type: task
 priority: normal
 created_at: 2026-08-21T12:32:10Z
-updated_at: 2026-08-21T12:59:01Z
+updated_at: 2026-08-21T14:14:26Z
 ---
 
 I mean the github readme.md Specially the hero image
