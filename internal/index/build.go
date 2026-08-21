@@ -14,7 +14,7 @@ import (
 // in the returned BuildReport.
 func Build(root string) (*Graph, *BuildReport, error) {
 	contentDir, taxonomies, singular := loadNotebook(root)
-	l1, l2 := loadLindenConfig(root, taxonomies)
+	l1, l2 := loadLindenConfig(root)
 
 	g := &Graph{
 		Root:       root,
@@ -121,36 +121,31 @@ func finalize(g *Graph) {
 	}
 	g.StarredDocs = sortedUnique(g.StarredDocs)
 
-	// Starred taxonomies from L1 config.
-	for _, tax := range g.Taxonomies {
-		if cfg, ok := g.L1Config[tax]; ok {
-			if b, ok := cfg["starred"].(bool); ok && b {
-				g.StarredTaxonomies = append(g.StarredTaxonomies, tax)
-			}
+	// Starred taxonomies: every L1-CONF with starred:true. Derived from the config
+	// filename identifiers (the singular name), matching Hugo's `.Site.Data` scan —
+	// unified with the L1 term-config lookup convention (§9.1).
+	for tax, cfg := range g.L1Config {
+		if b, ok := cfg["starred"].(bool); ok && b {
+			g.StarredTaxonomies = append(g.StarredTaxonomies, tax)
 		}
 	}
 	sort.Strings(g.StarredTaxonomies)
 
-	// Starred terms from L2 config, but only for terms that actually occur.
-	for _, tax := range g.Taxonomies {
-		terms := g.L2Config[tax]
-		if terms == nil {
-			continue
-		}
-		var names []string
-		for term := range terms {
-			names = append(names, term)
-		}
-		sort.Strings(names)
-		for _, term := range names {
-			if _, occurs := g.Members[tax][term]; !occurs {
-				continue
-			}
-			if b, ok := terms[term]["starred"].(bool); ok && b {
+	// Starred terms: every L2-CONF with starred:true (no occurrence filter — Hugo
+	// has none), keyed by the config-filename (singular) taxonomy name.
+	for tax, terms := range g.L2Config {
+		for term, cfg := range terms {
+			if b, ok := cfg["starred"].(bool); ok && b {
 				g.StarredTerms = append(g.StarredTerms, StarredTerm{Taxonomy: tax, Term: term})
 			}
 		}
 	}
+	sort.Slice(g.StarredTerms, func(i, j int) bool {
+		if g.StarredTerms[i].Taxonomy != g.StarredTerms[j].Taxonomy {
+			return g.StarredTerms[i].Taxonomy < g.StarredTerms[j].Taxonomy
+		}
+		return g.StarredTerms[i].Term < g.StarredTerms[j].Term
+	})
 }
 
 func sortedUnique(in []string) []string {

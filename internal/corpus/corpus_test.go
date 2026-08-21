@@ -74,11 +74,12 @@ func TestConfigConsistency(t *testing.T) {
 			t.Fatalf("hugo config missing taxonomy %q", tax)
 		}
 	}
-	// Every taxonomy used has an L1 config file.
+	// Every taxonomy used has an L1 config file, named by its SINGULAR taxonomy
+	// name (the key Hugo's .Data.Singular lookup resolves): tags -> tag, etc.
 	cfg := filepath.Join(dir, ConfigDir)
-	for _, tax := range []string{"tags", "subject"} {
-		if _, err := os.Stat(filepath.Join(cfg, "L1-CONF-TAX-"+tax+".yml")); err != nil {
-			t.Fatalf("missing L1 config for %q: %v", tax, err)
+	for plural, singular := range map[string]string{"tags": "tag", "subject": "subject"} {
+		if _, err := os.Stat(filepath.Join(cfg, "L1-CONF-TAX-"+singular+".yml")); err != nil {
+			t.Fatalf("missing L1 config for %q (singular %q): %v", plural, singular, err)
 		}
 	}
 }

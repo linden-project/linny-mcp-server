@@ -413,15 +413,17 @@ These are surfaced deliberately; they are **not** decided in v0.3.0.
 - **Q6 — Source of the taxonomy list.** Hugo takes it from its own site config; a
   standalone indexer needs an explicit notebook-level taxonomy declaration (the old
   `L0-CONF-ROOT.yml` was removed in spec 0.2.0). Define where the taxonomy list lives.
-- **Q7 — Filename-derived term identifiers. (RESOLVED for the L1 lookup.)** The L1
-  term-config index is keyed by the **singular** taxonomy name
-  (`L2-CONF-TAX-<singular>-TRM-<term>`), matching the reference (§9.1); `linny-mcp`
-  reproduces this exactly, so plural-named L2-CONF files under a singular≠plural
-  taxonomy resolve to `{}` just as they do under Hugo. The remaining open part: the
-  *starred* indexes still derive taxonomy/term names by splitting the config filename
-  (plural) and replacing spaces with dashes — a separate identifier source from the
-  L1 lookup. Whether to unify these (and to canonicalize L2-CONF filenames on the
-  singular name so configs always resolve) is deferred.
+- **Q7 — Filename-derived identifiers. (RESOLVED.)** All config-derived identifiers
+  use one convention: lindenConfig files are named with the **singular** taxonomy
+  name, and both the L1 term-config lookup (`L2-CONF-TAX-<singular>-TRM-<term>`, §9.1)
+  and the starred indexes (`_index_taxonomies_starred`, `_index_terms_starred`) are
+  keyed off those filenames — matching the reference's `.Data.Singular` lookup and
+  `.Site.Data` scan respectively. With singular-named config the L2 config resolves for
+  every taxonomy (no `{}`); `linny-mcp` reproduces the reference exactly, so
+  `verify --hugo` is zero-drift. (A notebook that instead names its config files with
+  the *plural* — as the legacy template does — will, under both Hugo and `linny-mcp`,
+  yield `{}` for the singular≠plural taxonomies' L1 config; the singular naming is the
+  recommended canonical convention precisely to avoid that.)
 - **Q8 — `_indexer_info.json` field set.** Standardize the field set (the reference is
   unstable: literal `"TODO"` paths, engine-specific version keys).
 

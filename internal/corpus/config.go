@@ -24,11 +24,15 @@ func writeLindenConfig(dir string, used map[string]map[string]bool) error {
 	sort.Strings(taxNames)
 
 	for _, tax := range taxNames {
+		// Config files are named by the SINGULAR taxonomy name — the key the Hugo
+		// reference (`.Data.Singular`) uses to resolve L2-CONF, so the L1 config
+		// index and the starred indexes resolve consistently.
+		sing := singularOf(tax)
 		// Deterministic "starred" taxonomy: the first alphabetically.
 		l1Starred := tax == taxNames[0]
 		l1 := fmt.Sprintf("title: %s\ninfotext: About %s\nstarred: %t\n",
 			strings.Title(tax), tax, l1Starred) //nolint:staticcheck // ascii
-		if err := os.WriteFile(filepath.Join(cfgPath, "L1-CONF-TAX-"+tax+".yml"), []byte(l1), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(cfgPath, "L1-CONF-TAX-"+sing+".yml"), []byte(l1), 0o644); err != nil {
 			return err
 		}
 
@@ -42,7 +46,7 @@ func writeLindenConfig(dir string, used map[string]map[string]bool) error {
 			l2Starred := i%3 == 0
 			l2 := fmt.Sprintf("title: %s\ninfotext: About %s in %s\nstarred: %t\narchive: false\n",
 				strings.Title(term), term, tax, l2Starred) //nolint:staticcheck // ascii
-			fname := "L2-CONF-TAX-" + tax + "-TRM-" + normalizeTerm(term) + ".yml"
+			fname := "L2-CONF-TAX-" + sing + "-TRM-" + normalizeTerm(term) + ".yml"
 			if err := os.WriteFile(filepath.Join(cfgPath, fname), []byte(l2), 0o644); err != nil {
 				return err
 			}
@@ -73,16 +77,10 @@ func writeHugoConfig(dir string) error {
 	b.WriteString("dataDir: lindenConfig\n")
 	b.WriteString("publishDir: lindenIndex\n\n")
 	b.WriteString("taxonomies:\n")
-	// Fixed singular->plural pairs consistent with the generator's plural keys.
-	pairs := [][2]string{
-		{"tag", "tags"},
-		{"project", "projects"},
-		{"customer", "customer"},
-		{"type", "type"},
-		{"subject", "subject"},
-	}
-	for _, pr := range pairs {
-		fmt.Fprintf(&b, "  %s: %q\n", pr[0], pr[1])
+	// singular: plural, derived from the taxonomy table so the Hugo config, the
+	// config filenames, and the indexer all agree on the singular↔plural mapping.
+	for _, tx := range taxonomies {
+		fmt.Fprintf(&b, "  %s: %q\n", singularOf(tx.name), tx.name)
 	}
 	return os.WriteFile(p, []byte(b.String()), 0o644)
 }

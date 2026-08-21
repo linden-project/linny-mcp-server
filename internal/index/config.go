@@ -65,22 +65,35 @@ func loadNotebook(root string) (contentDir string, taxonomies []string, singular
 }
 
 // loadLindenConfig reads the L1 and L2 config objects for the given taxonomies.
-func loadLindenConfig(root string, taxonomies []string) (l1 map[string]map[string]any, l2 map[string]map[string]TermConfig) {
+// loadLindenConfig scans the lindenConfig directory and keys L1/L2 config by the
+// taxonomy name as it appears in the config FILENAME — the same identifier the
+// Hugo reference derives from `.Site.Data`. Callers key the L1 term-config lookup
+// and the starred indexes off these (singular) names.
+func loadLindenConfig(root string) (l1 map[string]map[string]any, l2 map[string]map[string]TermConfig) {
 	l1 = map[string]map[string]any{}
 	l2 = map[string]map[string]TermConfig{}
 
 	dir := filepath.Join(root, lindenConfigRel)
-	for _, tax := range taxonomies {
-		if b, err := os.ReadFile(filepath.Join(dir, "L1-CONF-TAX-"+tax+".yml")); err == nil {
-			var m map[string]any
-			if yaml.Unmarshal(b, &m) == nil {
-				l1[tax] = m
-			}
+	entries, _ := os.ReadDir(dir)
+
+	// L1 files: L1-CONF-TAX-<tax>.yml
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, "L1-CONF-TAX-") || !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+		tax := strings.TrimSuffix(strings.TrimPrefix(name, "L1-CONF-TAX-"), ".yml")
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		var m map[string]any
+		if yaml.Unmarshal(b, &m) == nil {
+			l1[tax] = m
 		}
 	}
 
 	// L2 files: L2-CONF-TAX-<tax>-TRM-<term>.yml
-	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
 		name := e.Name()
 		if !strings.HasPrefix(name, "L2-CONF-TAX-") || !strings.HasSuffix(name, ".yml") {

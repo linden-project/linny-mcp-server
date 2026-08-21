@@ -44,16 +44,30 @@ func DefaultOptions() Options {
 // taxonomy is a plural front-matter key with its candidate terms. list=true
 // means the field may carry multiple terms (a list value).
 type taxonomy struct {
-	name  string
-	terms []string
-	list  bool
+	name     string // plural name (front-matter key, taxonomy dir)
+	singular string // singular name; empty means same as name
+	terms    []string
+	list     bool
+}
+
+// singularOf returns the singular name for a plural taxonomy (identity if none).
+func singularOf(plural string) string {
+	for _, tx := range taxonomies {
+		if tx.name == plural {
+			if tx.singular != "" {
+				return tx.singular
+			}
+			return tx.name
+		}
+	}
+	return plural
 }
 
 // taxonomies is fixed and ordered (never range a map when emitting — ordering
 // must be deterministic).
 var taxonomies = []taxonomy{
-	{name: "tags", terms: []string{"note", "idea", "todo", "work", "health", "finance", "reference"}, list: true},
-	{name: "projects", terms: []string{"acme", "apollo", "borealis"}},
+	{name: "tags", singular: "tag", terms: []string{"note", "idea", "todo", "work", "health", "finance", "reference"}, list: true},
+	{name: "projects", singular: "project", terms: []string{"acme", "apollo", "borealis"}},
 	{name: "customer", terms: []string{"eric", "globex", "initech"}},
 	{name: "type", terms: []string{"intro", "howto", "log", "spec"}},
 	{name: "subject", terms: []string{"linny", "nix", "golang"}},
