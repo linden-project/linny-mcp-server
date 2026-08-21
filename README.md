@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero.webp" alt="Linny — the Linnaeus-inspired MCP server for structured knowledge" width="820">
+  <img src="assets/hero2.webp" alt="Linny — the Linnaeus-inspired MCP server for structured knowledge" width="820">
 </p>
 
 <p align="center">
