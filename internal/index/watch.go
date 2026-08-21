@@ -52,7 +52,7 @@ func Watch(ctx context.Context, corpusRoot string, wait time.Duration, onChange 
 	}
 	defer func() { _ = w.Close() }()
 
-	contentDir, _ := loadNotebook(corpusRoot)
+	contentDir, _, _ := loadNotebook(corpusRoot)
 	for _, sub := range []string{contentDir, lindenConfigRel} {
 		dir := filepath.Join(corpusRoot, sub)
 		if _, err := os.Stat(dir); err == nil {

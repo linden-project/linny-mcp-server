@@ -65,8 +65,17 @@ func Emit(g *Graph, indexRoot string) error {
 		}
 		sort.Strings(terms)
 
+		// The L1 term-config index is keyed by the SINGULAR taxonomy name, matching
+		// Hugo's list.json.json which builds "L2-CONF-TAX-<Singular>-TRM-<term>".
+		// L2Config is keyed by the config filename's taxonomy segment, so for a
+		// notebook whose L2-CONF files use the plural name, a singular lookup finds
+		// nothing and yields {} — exactly as the Hugo reference does.
+		confTax := tax
+		if s, ok := g.Singular[tax]; ok {
+			confTax = s
+		}
 		for _, term := range terms {
-			if cfg, ok := g.L2Config[tax][term]; ok {
+			if cfg, ok := g.L2Config[confTax][term]; ok {
 				l1[term] = cfg
 			} else {
 				l1[term] = map[string]any{}

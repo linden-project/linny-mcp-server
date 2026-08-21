@@ -25,9 +25,10 @@ type hugoConfig struct {
 // loadNotebook resolves the content directory and the taxonomy set for a corpus
 // root. The taxonomy set is the union of the Hugo config's plural taxonomy names
 // and the taxonomies declared by L1-CONF-TAX-*.yml files.
-func loadNotebook(root string) (contentDir string, taxonomies []string) {
+func loadNotebook(root string) (contentDir string, taxonomies []string, singular map[string]string) {
 	contentDir = defaultContentDir
 	taxSet := map[string]bool{}
+	singular = map[string]string{} // plural -> singular
 
 	if b, err := os.ReadFile(filepath.Join(root, hugoConfigRel)); err == nil {
 		var hc hugoConfig
@@ -35,8 +36,10 @@ func loadNotebook(root string) (contentDir string, taxonomies []string) {
 			if hc.ContentDir != "" {
 				contentDir = hc.ContentDir
 			}
-			for _, plural := range hc.Taxonomies {
+			// Hugo's taxonomies map is singular -> plural.
+			for sing, plural := range hc.Taxonomies {
 				taxSet[plural] = true
+				singular[plural] = sing
 			}
 		}
 	}
@@ -53,9 +56,12 @@ func loadNotebook(root string) (contentDir string, taxonomies []string) {
 
 	for t := range taxSet {
 		taxonomies = append(taxonomies, t)
+		if _, ok := singular[t]; !ok {
+			singular[t] = t // no singular declared: identity
+		}
 	}
 	sort.Strings(taxonomies)
-	return contentDir, taxonomies
+	return contentDir, taxonomies, singular
 }
 
 // loadLindenConfig reads the L1 and L2 config objects for the given taxonomies.

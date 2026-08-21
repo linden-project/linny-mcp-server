@@ -1,8 +1,5 @@
-# verify-hugo Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change verify-run-hugo. Update Purpose after archive.
-## Requirements
 ### Requirement: verify --hugo builds and diffs the Hugo reference
 
 `lindexer verify --corpus <c> --hugo` SHALL assemble a Hugo site from the vendored
@@ -40,6 +37,8 @@ injected built-in params (`draft`, `iscjklanguage`) before comparing `docs_with_
   that our front matter lacks
 - **THEN** those keys do not, by themselves, cause a props discrepancy
 
+## ADDED Requirements
+
 ### Requirement: L1 term-config lookup uses the singular taxonomy name
 
 The L1 `<tax>/index.json` term-config index SHALL be looked up by the taxonomy's
@@ -55,4 +54,3 @@ no config resolves under the singular key, the term's value SHALL be an empty ob
 
 - **WHEN** taxonomy `tags` (singular `tag`) has L2 config files named with the plural
 - **THEN** `tags/index.json` maps each term to `{}`, exactly as Hugo emits
-

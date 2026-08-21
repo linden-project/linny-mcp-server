@@ -37,6 +37,10 @@ type Graph struct {
 	ConfigDir  string
 	// Taxonomies is the ordered set of taxonomy (plural) names.
 	Taxonomies []string
+	// Singular maps each taxonomy's plural name to its singular. The L1
+	// term-config index is looked up by the singular name, matching Hugo's
+	// `.Data.Singular`-keyed L2-CONF lookup.
+	Singular map[string]string
 	// Members maps taxonomy -> term -> set of member filenames.
 	Members map[string]map[string][]string
 	// Records is every successfully parsed record, keyed by filename.

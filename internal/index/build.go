@@ -13,7 +13,7 @@ import (
 // a single bad record: malformed front matter and conflict markers are recorded
 // in the returned BuildReport.
 func Build(root string) (*Graph, *BuildReport, error) {
-	contentDir, taxonomies := loadNotebook(root)
+	contentDir, taxonomies, singular := loadNotebook(root)
 	l1, l2 := loadLindenConfig(root, taxonomies)
 
 	g := &Graph{
@@ -21,6 +21,7 @@ func Build(root string) (*Graph, *BuildReport, error) {
 		ContentDir: contentDir,
 		ConfigDir:  lindenConfigRel,
 		Taxonomies: taxonomies,
+		Singular:   singular,
 		Members:    map[string]map[string][]string{},
 		Records:    map[string]*Record{},
 		L1Config:   l1,

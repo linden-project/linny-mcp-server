@@ -276,8 +276,16 @@ such.
 - **Shape:** JSON object, `term → term-config-object`.
 - **Semantics:** the catalogue of terms that actually occur in the taxonomy. Each
   value is the term's L2 config object (§5.2) — `title`, `infotext`, `starred`,
-  `views`, … Terms are keyed by their occurring value. A term with **no** L2 config
-  maps to `{}`.
+  `views`, … Terms are keyed by their occurring value. A term with **no** resolvable
+  L2 config maps to `{}`.
+- **Config key uses the SINGULAR taxonomy name.** The reference builds the lookup
+  as `L2-CONF-TAX-<singular>-TRM-<term>` (Hugo's `.Data.Singular`). So for a taxonomy
+  whose singular differs from its plural (e.g. `tag`→`tags`, `project`→`projects`),
+  L2-CONF files named with the *plural* do **not** resolve and every term maps to
+  `{}` — this is the reference's actual behaviour, not a bug in the consumer. For
+  taxonomies whose singular equals their plural (`customer`, `type`, `subject`) the
+  config resolves normally. A conforming indexer MUST key this lookup by the singular
+  name to stay byte-compatible with the reference.
 - **Example** (`customer/index.json`):
   ```json
   {
@@ -405,10 +413,15 @@ These are surfaced deliberately; they are **not** decided in v0.3.0.
 - **Q6 — Source of the taxonomy list.** Hugo takes it from its own site config; a
   standalone indexer needs an explicit notebook-level taxonomy declaration (the old
   `L0-CONF-ROOT.yml` was removed in spec 0.2.0). Define where the taxonomy list lives.
-- **Q7 — Filename-derived term identifiers.** The starred indexes derive
-  taxonomy/term names by string-splitting the *config filename* and replacing spaces
-  with dashes, coupling emitted identifiers to filenames rather than front matter.
-  Decide whether identifiers come from front matter or config filenames.
+- **Q7 — Filename-derived term identifiers. (RESOLVED for the L1 lookup.)** The L1
+  term-config index is keyed by the **singular** taxonomy name
+  (`L2-CONF-TAX-<singular>-TRM-<term>`), matching the reference (§9.1); `linny-mcp`
+  reproduces this exactly, so plural-named L2-CONF files under a singular≠plural
+  taxonomy resolve to `{}` just as they do under Hugo. The remaining open part: the
+  *starred* indexes still derive taxonomy/term names by splitting the config filename
+  (plural) and replacing spaces with dashes — a separate identifier source from the
+  L1 lookup. Whether to unify these (and to canonicalize L2-CONF filenames on the
+  singular name so configs always resolve) is deferred.
 - **Q8 — `_indexer_info.json` field set.** Standardize the field set (the reference is
   unstable: literal `"TODO"` paths, engine-specific version keys).
 
