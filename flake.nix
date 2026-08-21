@@ -79,7 +79,20 @@
               go test ./... -coverpkg=./... -covermode=atomic -coverprofile=cover.out
               total=$(go tool cover -func=cover.out | awk '/^total:/ { gsub("%","",$3); print $3 }')
               echo "total statement coverage: $total% (floor 70%)"
-              awk -v t="$total" 'BEGIN { if (t+0 < 70.0) { printf "FAIL: coverage %s%% is below the 70%% gate\n", t; exit 1 } }'
+              awk -v t="$total" 'BEGIN { if (t+0 < 70.0) { printf "FAIL: total coverage %s%% is below the 70%% gate\n", t; exit 1 } }'
+
+              echo "core package coverage (floor 80%):"
+              core="index authz auth redact defense gitsafe config corpus"
+              coreFail=0
+              for p in $core; do
+                pct=$(go test ./internal/$p/ -cover 2>/dev/null | sed -n 's/.*coverage: \([0-9.]*\)%.*/\1/p')
+                printf '  internal/%s: %s%%\n' "$p" "''${pct:-0}"
+                if ! awk -v c="''${pct:-0}" 'BEGIN { exit (c+0 < 80.0) }'; then
+                  echo "  FAIL: internal/$p is below the 80% core floor"
+                  coreFail=1
+                fi
+              done
+              [ "$coreFail" = 0 ] || exit 1
               runHook postBuild
             '';
             installPhase = ''
