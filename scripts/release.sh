@@ -17,7 +17,14 @@ nix_flags=(--extra-experimental-features 'nix-command flakes')
 
 # --- preflight: clean working copy on an up-to-date main, and a green gate ---
 echo ">> preflight: working copy must be clean"
-if ! jj status 2>/dev/null | grep -q "The working copy has no changes"; then
+# Capture rather than pipe: `grep -q` exits on its first match, and the EPIPE that
+# gives `jj status` makes it exit non-zero, which pipefail then reports as a dirty
+# tree. Capturing also surfaces a real jj failure instead of hiding it.
+if ! jj_status="$(jj status 2>&1)"; then
+  echo "!! jj status failed: $jj_status" >&2
+  exit 1
+fi
+if ! grep -q "The working copy has no changes" <<<"$jj_status"; then
   echo "!! working copy is not clean — commit or abandon changes first." >&2
   exit 1
 fi
