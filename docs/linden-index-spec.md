@@ -4,7 +4,7 @@
 - **Status:** Draft (alpha). Normative for the `linny-mcp` PoC indexer.
 - **Date:** 2026-08-20
 - **Editor of record:** Pim Snel (Linden Project)
-- **Supersedes (in spirit):** Linden Specification 0.2.0 — see §11 and §12.
+- **Supersedes (in spirit):** Linden Specification 0.2.0; see §11 and §12.
 
 > This document describes the **JSON index format** of a Linny notebook: the set of
 > files a Linden *indexer* produces from a markdown corpus, and that Linden *clients*
@@ -17,8 +17,8 @@
 
 ## 1. Purpose and scope
 
-A Linny notebook is a private, flat directory of markdown *records*. All structure —
-projects, customers, subjects, tags, dates, flags — lives in each record's YAML
+A Linny notebook is a private, flat directory of markdown *records*. All structure
+(projects, customers, subjects, tags, dates, flags) lives in each record's YAML
 **front matter**, not in the filesystem. The taxonomy graph is *derived output*: an
 **indexer** reads the records plus a small configuration set and emits a tree of JSON
 **index files**. Clients read those index files to build navigation, dashboards, and
@@ -26,9 +26,9 @@ lookups; they never re-parse the whole corpus.
 
 This specification defines:
 
-- the corpus and configuration inputs an indexer reads (§4–§5);
-- the location, layout, and naming of the index it writes (§6–§7);
-- the exact shape and semantics of every index file (§8–§9);
+- the corpus and configuration inputs an indexer reads (§4-§5);
+- the location, layout, and naming of the index it writes (§6-§7);
+- the exact shape and semantics of every index file (§8-§9);
 - which client feature consumes which file (§10);
 - the legacy flat layout and how it maps to the current one (§11);
 - conformance and the `verify` diff against the reference indexer (§12);
@@ -128,13 +128,13 @@ template it lives in Hugo's own `config.yaml` `taxonomies:` map, e.g.
 `subject → subject`). A standalone indexer SHOULD read the taxonomy list from an
 explicit notebook config; see §13-Q6.
 
-### 5.1 L1 — taxonomy config: `L1-CONF-TAX-<taxonomy>.yml`
+### 5.1 L1 taxonomy config: `L1-CONF-TAX-<taxonomy>.yml`
 
 Keys: `title`, `infotext`, `starred` (bool), `plural`, `description`, and `views`
 (a map of named views → `{ group_by, sort, sort_key, only, except }`). A taxonomy
 with `starred: true` appears in `_index_taxonomies_starred.json` (§8.7).
 
-### 5.2 L2 — term config: `L2-CONF-TAX-<taxonomy>-TRM-<term>.yml`
+### 5.2 L2 term config: `L2-CONF-TAX-<taxonomy>-TRM-<term>.yml`
 
 Keys: `title`, `infotext`, `archive` (bool), `starred` (bool), `views`, and
 (currently commented in the template) `mounts`, `locations`, `frontmatter_template`.
@@ -225,7 +225,7 @@ such.
   ```
 - **Consumer:** term (L2) menu document listing, view filtering/grouping, export/zip.
 
-### 8.4 `_index_docs_with_title.json` — DEPRECATED
+### 8.4 `_index_docs_with_title.json` (DEPRECATED)
 
 - **Shape:** JSON object, `filename → title` (string).
 - **Status:** **Deprecated.** Titles are available from `_index_docs_with_props.json`.
@@ -271,18 +271,18 @@ such.
 
 ## 9. Per-taxonomy and per-term index files
 
-### 9.1 L1 — `<taxonomy>/index.json`
+### 9.1 L1: `<taxonomy>/index.json`
 
 - **Shape:** JSON object, `term → term-config-object`.
 - **Semantics:** the catalogue of terms that actually occur in the taxonomy. Each
-  value is the term's L2 config object (§5.2) — `title`, `infotext`, `starred`,
+  value is the term's L2 config object (§5.2): `title`, `infotext`, `starred`,
   `views`, … Terms are keyed by their occurring value. A term with **no** resolvable
   L2 config maps to `{}`.
 - **Config key uses the SINGULAR taxonomy name.** The reference builds the lookup
   as `L2-CONF-TAX-<singular>-TRM-<term>` (Hugo's `.Data.Singular`). So for a taxonomy
   whose singular differs from its plural (e.g. `tag`→`tags`, `project`→`projects`),
   L2-CONF files named with the *plural* do **not** resolve and every term maps to
-  `{}` — this is the reference's actual behaviour, not a bug in the consumer. For
+  `{}`. This is the reference's actual behaviour, not a bug in the consumer. For
   taxonomies whose singular equals their plural (`customer`, `type`, `subject`) the
   config resolves normally. A conforming indexer MUST key this lookup by the singular
   name to stay byte-compatible with the reference.
@@ -297,12 +297,12 @@ such.
 - **Consumer:** term autocomplete; Level-1 (taxonomy) side menu; term
   listing/grouping via `views.*.group_by`.
 
-### 9.2 L2 — `<taxonomy>/<term>/index.json`
+### 9.2 L2: `<taxonomy>/<term>/index.json`
 
 - **Shape:** JSON array of document filenames.
-- **Semantics:** the membership list — every record carrying that (taxonomy, term).
+- **Semantics:** the membership list, every record carrying that (taxonomy, term).
 - **Example** (`customer/eric/index.json`): `["first_note.md", "address_eric.md"]`
-- **Consumer:** Level-2 (term) side menu — the list of member documents.
+- **Consumer:** Level-2 (term) side menu, the list of member documents.
 
 ---
 
@@ -317,9 +317,9 @@ such.
 | `_index_docs_with_props.json`    | Term menu doc listing; view filtering/grouping; export |
 | `_index_docs_with_title.json`    | Title resolution (deprecated, still read) |
 | `_index_docs_tasks_count.json`   | Task-count badges |
-| `_indexer_info.json`             | (none — informational) |
+| `_indexer_info.json`             | (none, informational) |
 | `<tax>/index.json` (L1)          | Term autocomplete; Level-1 side menu; term grouping |
-| `<tax>/<term>/index.json` (L2)   | Level-2 side menu — member documents |
+| `<tax>/<term>/index.json` (L2)   | Level-2 side menu, member documents |
 
 ---
 
@@ -344,15 +344,15 @@ The home-level `_index_*.json` files are largely shared. `verify` (§12) MAY off
   tags every record into a synthetic `front_matter: valid|invalid` taxonomy. The Hugo
   reference does neither. v0.3.0 follows Hugo (title-less records are dropped from the
   props/title indexes); revisiting this is §13-Q2.
-- lindex additionally wrote a human-facing `index.md` (A–Z `[[wikilink]]` list) into
+- lindex additionally wrote a human-facing `index.md` (A-Z `[[wikilink]]` list) into
   the wiki directory. That is not an index file and is out of scope.
 
 ### 11.3 Correction: `$FORMAT` / `$INCLUDE` do not exist
 
 Earlier briefing material referred to `$FORMAT` / `$INCLUDE` front-matter directives.
 **No such directives exist** anywhere in the notebook template, `linny.vim`, or the
-spec repo. What exists are **WikiTags** — `[[LIN …]]`, `[[DIR …]]`, `[[VIM …]]`,
-`[[SHELL …]]`, `[[GH …]]`, `[[FILE …]]` — which are *editor navigation actions*
+spec repo. What exists are **WikiTags** (`[[LIN …]]`, `[[DIR …]]`, `[[VIM …]]`,
+`[[SHELL …]]`, `[[GH …]]`, `[[FILE …]]`), which are *editor navigation actions*
 handled by the client, unrelated to the JSON index. An indexer MUST NOT attempt to
 expand them.
 
@@ -366,7 +366,7 @@ A conforming indexer:
 
 1. writes every home-level file in §8 and the nested L1/L2 files in §9 to the index
    root (§6), using the naming/normalization of §7;
-2. produces JSON of the exact shapes in §8–§9, such that `linny.vim` operates against
+2. produces JSON of the exact shapes in §8-§9, such that `linny.vim` operates against
    it unmodified;
 3. treats the index root as a disposable cache (rebuild-from-empty always valid);
 4. reports committed conflict markers (§12.3).
@@ -396,35 +396,35 @@ degraded.
 
 These are surfaced deliberately; they are **not** decided in v0.3.0.
 
-- **Q1 — Nested vs. flat filenames.** Nested (`<tax>/index.json`) is normative because
+- **Q1. Nested vs. flat filenames.** Nested (`<tax>/index.json`) is normative because
   the live client reads it. Confirm this is permanent, or require emitting both the
   nested and legacy-flat names during a migration window.
-- **Q2 — Title-less / invalid-front-matter records.** Hugo silently drops them from
+- **Q2. Title-less / invalid-front-matter records.** Hugo silently drops them from
   the props/title indexes; lindex synthesizes a title and tags
   `front_matter: valid|invalid`. Which behaviour is canonical for v0.4?
-- **Q3 — Vestigial per-page JSON.** The Hugo template also emits a per-record
+- **Q3. Vestigial per-page JSON.** The Hugo template also emits a per-record
   `<slug>/index.json` (`{ data: { title, date, type, permalink, summary } }`) that no
   client reads. Define it or drop it.
-- **Q4 — Multi-valued taxonomy fields.** Samples only exercise scalar term values.
+- **Q4. Multi-valued taxonomy fields.** Samples only exercise scalar term values.
   Confirm membership semantics for list-valued fields (lindex distinguished
   `has_many` vs `has_many_belong_to_many`).
-- **Q5 — Task-count regex.** Must a task marker be at line start? Is uppercase `[X]`
+- **Q5. Task-count regex.** Must a task marker be at line start? Is uppercase `[X]`
   a closed task? The Hugo and lindex regexes differ subtly.
-- **Q6 — Source of the taxonomy list.** Hugo takes it from its own site config; a
+- **Q6. Source of the taxonomy list.** Hugo takes it from its own site config; a
   standalone indexer needs an explicit notebook-level taxonomy declaration (the old
   `L0-CONF-ROOT.yml` was removed in spec 0.2.0). Define where the taxonomy list lives.
-- **Q7 — Filename-derived identifiers. (RESOLVED.)** All config-derived identifiers
+- **Q7. Filename-derived identifiers. (RESOLVED.)** All config-derived identifiers
   use one convention: lindenConfig files are named with the **singular** taxonomy
   name, and both the L1 term-config lookup (`L2-CONF-TAX-<singular>-TRM-<term>`, §9.1)
   and the starred indexes (`_index_taxonomies_starred`, `_index_terms_starred`) are
-  keyed off those filenames — matching the reference's `.Data.Singular` lookup and
+  keyed off those filenames, matching the reference's `.Data.Singular` lookup and
   `.Site.Data` scan respectively. With singular-named config the L2 config resolves for
   every taxonomy (no `{}`); `linny-mcp` reproduces the reference exactly, so
   `verify --hugo` is zero-drift. (A notebook that instead names its config files with
-  the *plural* — as the legacy template does — will, under both Hugo and `linny-mcp`,
+  the *plural* (as the legacy template does) will, under both Hugo and `linny-mcp`,
   yield `{}` for the singular≠plural taxonomies' L1 config; the singular naming is the
   recommended canonical convention precisely to avoid that.)
-- **Q8 — `_indexer_info.json` field set.** Standardize the field set (the reference is
+- **Q8. `_indexer_info.json` field set.** Standardize the field set (the reference is
   unstable: literal `"TODO"` paths, engine-specific version keys).
 
 ---
@@ -437,16 +437,16 @@ These are surfaced deliberately; they are **not** decided in v0.3.0.
 | 0.1.2   | All index/config file names and options enumerated (website). |
 | 0.2.0   | Removed L0 configuration; added `starred` to L1 config (website). Flat index layout. |
 | (0.2.1) | Lindex code only: added `_index_docs_tasks_count`. Never written into the spec. |
-| —       | 2021 Hugo/"Carl" port redesigned index files (nested layout); never folded back into the spec (per "Project Reboot", 2021-04-29). |
+| (none)  | 2021 Hugo/"Carl" port redesigned index files (nested layout); never folded back into the spec (per "Project Reboot", 2021-04-29). |
 | **0.3.0** | **This document.** Folds the Hugo redesign back into the spec: nested L1/L2 layout normative, home-level files documented as emitted today, deprecations and ambiguities recorded, `$FORMAT`/`$INCLUDE` correction. |
 
 ---
 
 ## 15. References
 
-- `linden-project/linny-notebook-template` — Hugo layouts (reference producer).
-- `linden-project/linny.vim` (== `mipmip/linny.vim`) — reference consumer
+- `linden-project/linny-notebook-template`: Hugo layouts (reference producer).
+- `linden-project/linny.vim` (== `mipmip/linny.vim`): reference consumer
   (`autoload/linny.vim`, `lua/linny/**`, `doc/linny.txt`).
-- `linden-project/lindex` — archived Crystal predecessor indexer.
-- `linden-project/linden-project.github.io` — Linden Specification 0.1.2 / 0.2.0 and
+- `linden-project/lindex`: archived Crystal predecessor indexer.
+- `linden-project/linden-project.github.io`: Linden Specification 0.1.2 / 0.2.0 and
   the "Project Reboot" post.

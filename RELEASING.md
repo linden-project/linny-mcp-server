@@ -1,7 +1,7 @@
 # Releasing linny-mcp
 
 A release is **a git tag**. mipnix consumes this repository as a Nix flake input
-built from source, so there is nothing to compile-and-upload — no goreleaser, no
+built from source, so there is nothing to compile-and-upload: no goreleaser, no
 prebuilt binaries, no tag-triggered Actions.
 
 ## Version source of truth
@@ -10,7 +10,7 @@ prebuilt binaries, no tag-triggered Actions.
 (`version = lib.fileContents ./VERSION`) and stamps it into the binary via the
 package `-ldflags` → `internal/buildinfo.Version`, which is what the `version`
 subcommand, the `serve` banner, `_indexer_info.json`'s `product_version`, and the MCP
-server's advertised implementation version all report. **Bump only `VERSION`** — never
+server's advertised implementation version all report. **Bump only `VERSION`**, never
 hardcode a version anywhere else. (Dev builds via `go run` report `0.0.0-dev`; only Nix
 builds are stamped.)
 
@@ -23,14 +23,14 @@ scripts/release.sh     # or: scripts/release.sh patch|minor|major
 
 The script, in order:
 
-1. **Preflight (gate — never bypassed):** the working copy must be clean, `main` must
+1. **Preflight (gate, never bypassed):** the working copy must be clean, `main` must
    be in sync with `origin`, and `nix flake check` must pass.
 2. **Bump:** `gum choose major/minor/patch`, computes the next semver from `VERSION`,
    asks to confirm.
 3. **Record:** writes the new `VERSION` and rolls the CHANGELOG `[Unreleased]` section
    into a dated `[X.Y.Z]` section (leaving a fresh `[Unreleased]`).
 4. **Commit + tag:** `jj commit` + `jj git push` the bump, then `git tag vX.Y.Z` on
-   that commit and `git push origin vX.Y.Z` (tags go through the colocated git —
+   that commit and `git push origin vX.Y.Z` (tags go through the colocated git;
    `jj git push` does not push tags). The tag points at the bump commit, so a build at
    the tag reports the right version.
 5. **Publish:** `gh release create vX.Y.Z` with the new CHANGELOG section as the notes
@@ -56,5 +56,5 @@ nixos-rebuild switch --flake .#dapperehaan
 ```
 
 Watch `/healthz` (and ntfy) after the switch. Secret hygiene is unchanged: device
-tokens come from `age.secrets` as a `tokensFile` **path** — never a token value in a
+tokens come from `age.secrets` as a `tokensFile` **path**, never a token value in a
 Nix option.

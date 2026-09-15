@@ -1,4 +1,4 @@
-# Deployment wiring (mipnix side) — documentation only
+# Deployment wiring (mipnix side): documentation only
 
 This describes how `linny-mcp` is wired into the fleet. It is **documentation**: the
 actual host configuration lives in `github.com/mipmip/mipnix`, not in this repo.
@@ -59,7 +59,7 @@ age.secrets.linny-mcp-tokens = {
 ```
 
 The token file holds hashed records (`linny-mcp gen-token` prints them). **No token
-value ever appears in a Nix option** — options land world-readable in `/nix/store`.
+value ever appears in a Nix option**, because options land world-readable in `/nix/store`.
 
 ## Nebula
 
@@ -70,7 +70,7 @@ over the overlay. Reverse-proxy `secondbrain.pimsnel.com` → the MacBook's mesh
 ## ntfy
 
 A self-hosted ntfy runs on the Hetzner box; `ntfyTopicURL` points the server at a
-topic. Degraded-mode transitions POST an alert to the phone — **never** into the
+topic. Degraded-mode transitions POST an alert to the phone, **never** into the
 corpus.
 
 ## git-sync

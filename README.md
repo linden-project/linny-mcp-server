@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero2.webp" alt="Linny — the Linnaeus-inspired MCP server for structured knowledge" width="820">
+  <img src="assets/hero2.webp" alt="Linny: the Linnaeus-inspired MCP server for structured knowledge" width="820">
 </p>
 
 <p align="center">
@@ -13,8 +13,8 @@
 
 # linny-mcp
 
-A single Go binary that exposes a private markdown corpus — a Hugo/front-matter
-based **Linny notebook** (thousands of flat `.md` files) — to AI agents over the
+A single Go binary that exposes a private markdown corpus (a Hugo/front-matter
+based **Linny notebook** of thousands of flat `.md` files) to AI agents over the
 **Model Context Protocol (MCP)**.
 
 Linny is named after **Carl Linnaeus**, the father of modern taxonomy: the notebook
@@ -25,11 +25,11 @@ This repository is the PoC / alpha base. It is consumed downstream as a Nix flak
 input in [`mipnix`](https://github.com/mipmip/mipnix).
 
 > [!IMPORTANT]
-> ## Secret hygiene — the one rule that must never be broken
+> ## Secret hygiene: the one rule that must never be broken
 >
 > **No token value may ever appear in a Nix option.** Nix option values land
 > **world-readable in `/nix/store`**. The NixOS module therefore takes a
-> **`tokensFile` path**, never a token literal — source it from
+> **`tokensFile` path**, never a token literal. Source it from
 > `age.secrets.linny-mcp-tokens.path` with `owner` set to the service user.
 >
 > Corollaries baked into the code:
@@ -45,7 +45,7 @@ input in [`mipnix`](https://github.com/mipmip/mipnix).
   `stateDir`. It is a cache: **never committed to git**, and deleting `stateDir` and
   rebuilding is always a valid recovery step.
 - **A standalone indexer** (`cmd/lindexer`) that parses YAML front matter, builds the
-  taxonomy graph, and emits the JSON index files that `linny.vim` already consumes —
+  taxonomy graph, and emits the JSON index files that `linny.vim` already consumes,
   intended to eventually replace the Hugo indexer ("Carl").
 - **Static bearer-token auth** (explicitly *not* OAuth), behind an `Authenticator`
   interface so OIDC can be added later without a rewrite.
@@ -81,7 +81,7 @@ nix flake check      # gates go test + golangci-lint for both supported systems
 ```
 
 Supported systems: `x86_64-linux`, `aarch64-linux` (enumerated explicitly in
-`flake.nix` — no `flake-utils`).
+`flake.nix`, no `flake-utils`).
 
 ## How the work is organised
 

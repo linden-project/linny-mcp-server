@@ -1,4 +1,4 @@
-# Local testing — kick the tires
+# Local testing: kick the tires
 
 A guided local run against a **throwaway test corpus**. Never point this at the real
 `secondbrain` repo while experimenting.
@@ -32,7 +32,7 @@ DEMO=/tmp/linny-demo; rm -rf $DEMO
 
 `--edge-cases=true` (default) adds a committed conflict marker + a malformed record so
 you can see degraded mode and error handling. Use `--edge-cases=false` for a clean
-corpus (needed for the Hugo `verify` step — Hugo aborts on malformed front matter).
+corpus (needed for the Hugo `verify` step, because Hugo aborts on malformed front matter).
 
 ## 2. Explore the indexer (no MCP client needed)
 
@@ -102,7 +102,7 @@ The tool surface (arguments, semantics, scopes) is documented in `docs/tools.md`
 
 - **Degraded mode:** while the server runs, add a conflict marker to a note
   (`printf '<<<<<<< HEAD\n' >> $DEMO/content/<some>.md`), then call `sync_status` /
-  `GET /healthz` — it flips to `degraded`, and writes are refused. Remove it → recovers
+  `GET /healthz`: it flips to `degraded`, and writes are refused. Remove it → recovers
   automatically (no restart).
 - **Scopes:** mint a second token with `--scopes 'read:*,deny:taxonomy:tags:health'`
   and confirm `docs_by_term tags health` returns nothing and `get_doc` on a
@@ -111,7 +111,7 @@ The tool surface (arguments, semantics, scopes) is documented in `docs/tools.md`
   returns them `[REDACTED:...]`.
 - **Quarantine + audit:** `create_doc` lands in `status: agent-draft`; every write is
   appended to `$DEMO/state/audit.log`.
-- **Disposable cache / backup:** delete `$DEMO/state` and re-run `lindexer build` — a
+- **Disposable cache / backup:** delete `$DEMO/state` and re-run `lindexer build`. A
   valid recovery. `linny-mcp backup --corpus $DEMO --out snap.tar.gz` then
   `restore --in snap.tar.gz --corpus <dir>` round-trips the content.
 
