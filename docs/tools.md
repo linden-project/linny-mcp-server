@@ -42,12 +42,50 @@ document's resulting term membership.
 |----------------------|--------------------------------------------|------------------------------------------|
 | `create_doc`         | `title`, `front_matter?`, `body?`          | `{ok, slug, quarantined, membership}` — lands in `status: agent-draft`; needs `write:inbox`/`write:*` |
 | `append_to_doc`      | `slug`, `text`                             | `{ok, slug, membership}` |
-| `set_front_matter`   | `slug`, `key`, `value`                     | `{ok, slug, membership}` — order-preserving |
+| `set_front_matter`   | `slug`, `key`, `value`                     | `{ok, slug, membership, new_terms?}` — order-preserving, typed |
 | `unset_front_matter` | `slug`, `key`                              | `{ok, slug, membership}` |
 | `archive`            | `slug`                                     | `{ok, slug, membership}` — sets `archived: true` |
+| `add_term`           | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership, new_terms?}` — idempotent |
+| `remove_term`        | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership}` — idempotent |
 
 Modifying an existing document requires `write:*` (or `write:inbox` for a quarantined
 draft).
+
+### Front-matter value types
+
+`set_front_matter` writes the value with the type the caller sent, rather than
+stringifying it. Types are never inferred from a string's contents, so a string that
+looks like a date stays a string.
+
+| Caller sends (JSON)   | Written as            |
+|-----------------------|-----------------------|
+| `"acme"`              | string                |
+| `true`                | bool                  |
+| `3`                   | int                   |
+| `3.5`                 | float                 |
+| `null`                | null                  |
+| `["acme","globex"]`   | block sequence        |
+| object / nested list  | refused               |
+
+On a **declared taxonomy** key the value must be a string or a list of strings.
+Anything else is refused: the indexer reads only those two shapes, so a number would
+write cleanly and then produce no term membership at all.
+
+### Managing terms
+
+`add_term` and `remove_term` are the operations to reach for when classifying a
+document — they avoid a read-modify-write of the whole list against a corpus that may
+be syncing underneath you. Both are idempotent:
+
+- `add_term` creates the key as a list when absent, promotes a single existing value
+  to a list, and does nothing when the term is already a member. Membership is
+  compared the way the indexer normalizes terms, so adding `Acme` to a document
+  already carrying `acme` is a no-op.
+- `remove_term` drops the term, and removes the key entirely when the last term goes.
+
+A term with no `L2-CONF-TAX-<tax>-TRM-<term>.yml` is still written — terms are
+open-ended — but it is reported back in `new_terms`, so coining a term is visible
+rather than accidental.
 
 ## Operational (v1 — shipped)
 
@@ -73,3 +111,5 @@ Recorded so names are reserved and stable when implemented:
   `list_taxonomies`, `terms`, `docs_by_term`; history tools — `history`, `diff`,
   `changed_since`; write tools — `create_doc`, `append_to_doc`, `set_front_matter`,
   `unset_front_matter`, `archive`; operational — `sync_status`, `verify_index`.
+- **v1.1**: typed front-matter values (lists and real scalars, replacing the
+  stringifying writer) and the `add_term` / `remove_term` tools.

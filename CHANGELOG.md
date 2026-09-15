@@ -37,13 +37,31 @@ semantic versioning once it leaves alpha.
 - **Branding** — a Linnaeus-mascot hero banner in the README (with the "Connect.
   Classify. Empower." tagline and a MIT license badge), and a `docs/brand/` reference
   recording the palette and taglines.
+- **`add_term` / `remove_term` MCP tools** — idempotent taxonomy membership edits. They
+  create the key as a list when absent, promote a single existing value to a list, and
+  remove the key when the last term goes. A term with no declared config is still
+  written, and reported back as `new_terms`.
 
 ### Changed
+- **`set_front_matter` writes real types.** Lists, integers, floats, booleans and null
+  are written as themselves instead of being flattened to a string — so an agent can
+  finally tag a document. On a declared taxonomy key a value the indexer cannot read
+  (a number, a nested structure) is now refused rather than written and silently
+  ignored.
 - The version is sourced from a `VERSION` file (single source of truth), read by the
   flake and reported by the `version` subcommand, the `serve` banner, `_indexer_info`,
   and the MCP handshake.
 - The L1 term-config lookup and the starred indexes are keyed by the singular taxonomy
   name (with lindenConfig files named by the singular taxonomy), matching the Hugo
   reference exactly — `verify --hugo` is zero-drift.
+
+### Fixed
+- **Degraded mode is honoured by every write tool.** `append_to_doc`,
+  `set_front_matter`, `unset_front_matter` and `archive` never consulted the git-safety
+  guard, so they wrote to a conflicted or mid-rebase working tree. Only `create_doc`
+  refused. All of them now do.
+- **Setting a list no longer corrupts the taxonomy.** `set_front_matter` used to write
+  `tags: '[note idea]'`, which the indexer read as a single junk term that then reached
+  the emitted JSON index and `linny.vim`.
 
 [Unreleased]: https://github.com/linden-project/linny-mcp-server/commits/main

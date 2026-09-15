@@ -24,12 +24,13 @@ these are implemented; each is a conscious deferral.
 
 ## Writes
 
-- **Surgical, `fred`-style front-matter editing for all value types.** `set`/`unset`
-  already edit the YAML node order-preservingly; a full editor would mirror `fred`'s
-  `set_bool_val`/`replace_key`/`toggle_bool_val` and validate values against
-  `lindenConfig` before writing.
-- **Full `lindenConfig` validation.** Reject writes that introduce unknown taxonomies
-  or malformed term values, rather than only ensuring the file still parses.
+- **Full `lindenConfig` validation.** Writes are now rejected when a declared
+  taxonomy would receive a value the indexer cannot read, and a coined term is
+  reported back. Still open: rejecting an *unknown* taxonomy key outright, and
+  validating the rest of a term config's shape.
+- **Reloading the token file.** `serve` reads it once at startup, so a scope change
+  needs a restart. A `SIGHUP` reload (or a watch) would let a deployment update
+  scopes without one.
 - **`delete` and bulk-retag with out-of-band confirmation.** The quarantine policy
   already flags these as confirmation-required; the confirmation channel and the tools
   are not built.
