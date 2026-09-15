@@ -6,6 +6,8 @@ semantic versioning once it leaves alpha.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-15
+
 ### Added
 - **Standalone indexer** (`lindexer`): `build` (linny.vim-compatible JSON + a
   SQLite/FTS5 store), `search` (FTS5, bm25-ranked with snippets), `verify` (diff our
