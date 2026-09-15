@@ -30,6 +30,15 @@ type reader struct {
 	scopeArgs  []any
 	corpusPath string            // for git history tools; may be empty
 	syncStatus func() SyncStatus // operational status; when set, sync_status is registered
+
+	// Session facts, reported by session_info. They describe the connection and
+	// the caller's credential, never the corpus.
+	scope         *authz.ScopeSet
+	identity      string
+	scopes        []string
+	notebook      string
+	quarantine    bool
+	writesEnabled bool
 }
 
 // SyncStatus is the operational git-safety state returned by the sync_status tool.
@@ -46,7 +55,7 @@ type SyncStatus struct {
 // newReader builds a reader for a scope set.
 func newReader(store *index.Store, red *redact.Redactor, ss *authz.ScopeSet, corpusPath string) *reader {
 	sql, args := ss.ReadableFilenamesSQL()
-	return &reader{store: store, red: red, scopeSQL: sql, scopeArgs: args, corpusPath: corpusPath}
+	return &reader{store: store, red: red, scopeSQL: sql, scopeArgs: args, corpusPath: corpusPath, scope: ss}
 }
 
 // readable reports whether the caller's scope permits reading slug.
@@ -96,6 +105,11 @@ func buildToolServer(rd *reader) *mcpsdk.Server {
 		Description: "List documents changed since a date or revision (readable ones only).",
 	}, rd.changedSince)
 
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name: "session_info",
+		Description: "What this connection is: server version, notebook, your identity and scopes, " +
+			"and whether you can write right now. Call it before reporting that a write is impossible.",
+	}, rd.sessionInfo)
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name: "starred_docs",
 		Description: "List the documents flagged `starred: true` in front matter, with titles. " +
@@ -159,6 +173,48 @@ type getDocOut struct {
 }
 
 type emptyIn struct{}
+
+// Modify-permission values. ensureModify has three outcomes, so a boolean would
+// have to lie about the middle one, which is the common case.
+const (
+	modifyAll       = "all"        // write:*
+	modifyOwnDrafts = "own-drafts" // write:inbox: quarantined drafts only
+	modifyNone      = "none"
+)
+
+type sessionServerOut struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+type sessionNotebookOut struct {
+	Name          string `json:"name,omitempty"`
+	Quarantine    bool   `json:"quarantine"`
+	WritesEnabled bool   `json:"writes_enabled"`
+}
+type sessionCallerOut struct {
+	Identity  string   `json:"identity,omitempty"`
+	Scopes    []string `json:"scopes"`
+	CanRead   bool     `json:"can_read"`
+	CanCreate bool     `json:"can_create"`
+	// CanModify is "all", "own-drafts" or "none".
+	CanModify string `json:"can_modify"`
+}
+type sessionStatusOut struct {
+	Degraded bool   `json:"degraded"`
+	ReadOnly bool   `json:"read_only"`
+	Reason   string `json:"reason,omitempty"`
+}
+type sessionInfoOut struct {
+	Server   sessionServerOut   `json:"server"`
+	Notebook sessionNotebookOut `json:"notebook"`
+	Caller   sessionCallerOut   `json:"caller"`
+	Status   sessionStatusOut   `json:"status"`
+	// CanWriteNow is the conjunction of every gate a write must pass. Reporting
+	// the gates separately and leaving the caller to combine them is how a wrong
+	// diagnosis gets made.
+	CanWriteNow bool   `json:"can_write_now"`
+	Reason      string `json:"reason,omitempty"`
+}
 
 type starredDocsOut struct {
 	Docs []index.DocRef `json:"docs"`
@@ -234,6 +290,64 @@ func (rd *reader) getDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in getDoc
 		ContentHash: hash,
 		Redacted:    redactions > 0,
 	}, nil
+}
+
+func (rd *reader) sessionInfo(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, sessionInfoOut, error) {
+	// Tree state comes from the accessor sync_status reports from, so the two
+	// tools cannot disagree.
+	var st sessionStatusOut
+	if rd.syncStatus != nil {
+		ss := rd.syncStatus()
+		st = sessionStatusOut{Degraded: ss.Degraded, ReadOnly: ss.ReadOnly, Reason: ss.Reason}
+	}
+
+	modify := modifyNone
+	switch {
+	case rd.scope.CanWriteAll():
+		modify = modifyAll
+	case rd.scope.CanWriteInbox():
+		modify = modifyOwnDrafts
+	}
+
+	out := sessionInfoOut{
+		Server:   sessionServerOut{Name: "linny-mcp", Version: buildinfo.Version},
+		Notebook: sessionNotebookOut{Name: rd.notebook, Quarantine: rd.quarantine, WritesEnabled: rd.writesEnabled},
+		Caller: sessionCallerOut{
+			Identity:  rd.identity,
+			Scopes:    append([]string{}, rd.scopes...),
+			CanRead:   rd.scope.CanReadAny(),
+			CanCreate: rd.scope.CanWriteInbox(),
+			CanModify: modify,
+		},
+		Status: st,
+	}
+	out.CanWriteNow, out.Reason = writeVerdict(rd.writesEnabled, st, rd.scope)
+	if out.Caller.Scopes == nil {
+		out.Caller.Scopes = []string{}
+	}
+	return nil, out, nil
+}
+
+// writeVerdict answers "can I write right now", naming the first gate that fails
+// in the order a write actually meets them. It names one gate, not all of them:
+// fixing the named one and asking again surfaces the next.
+func writeVerdict(writesEnabled bool, st sessionStatusOut, ss *authz.ScopeSet) (bool, string) {
+	switch {
+	case !writesEnabled:
+		return false, "the server has no write tools registered (read-only mode, or no state dir for the audit log)"
+	case st.Degraded:
+		reason := st.Reason
+		if reason == "" {
+			reason = "the working tree is degraded"
+		}
+		return false, "writes are refused while the notebook is degraded: " + reason
+	case ss.CanWriteAll():
+		return true, ""
+	case ss.CanWriteInbox():
+		return true, "this token may create quarantined drafts and modify only those; existing documents need write:*"
+	default:
+		return false, "this token holds no write scope; creating needs write:inbox, modifying needs write:*"
+	}
 }
 
 func (rd *reader) starredDocs(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, starredDocsOut, error) {

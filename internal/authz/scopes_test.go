@@ -59,3 +59,46 @@ func TestArgOrderMatchesPlaceholders(t *testing.T) {
 		}
 	}
 }
+
+func TestCanReadAny(t *testing.T) {
+	cases := []struct {
+		name   string
+		scopes []string
+		want   bool
+	}{
+		{"read all", []string{"read:*"}, true},
+		{"read one taxonomy", []string{"read:taxonomy:work"}, true},
+		{"read one term", []string{"read:taxonomy:work:acme"}, true},
+		{"no scopes at all", nil, false},
+		{"write only", []string{"write:*"}, false},
+		{"write inbox only", []string{"write:inbox"}, false},
+		{"deny only", []string{"deny:taxonomy:health"}, false},
+		{"read plus deny still reads", []string{"read:*", "deny:taxonomy:health"}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ss, err := Parse(c.scopes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := ss.CanReadAny(); got != c.want {
+				t.Fatalf("CanReadAny() = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// A deny rule is parsed as a read action; it must never be mistaken for a grant.
+func TestDenyIsNotAReadGrant(t *testing.T) {
+	ss, err := Parse([]string{"deny:taxonomy:health"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ss.CanReadAny() {
+		t.Fatal("a deny rule alone grants no read")
+	}
+	sql, _ := ss.ReadableFilenamesSQL()
+	if !strings.Contains(sql, "WHERE 0 AND NOT") {
+		t.Fatalf("deny-only should select nothing, got %q", sql)
+	}
+}

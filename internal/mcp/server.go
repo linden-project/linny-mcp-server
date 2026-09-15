@@ -35,12 +35,23 @@ type Server struct {
 	Store      *index.Store
 	Redactor   *redact.Redactor
 	CorpusPath string // notebook working tree, for the git history + write tools
+	// NotebookName is the configured label for this notebook ("default",
+	// "business"). Reported by session_info; never a path.
+	NotebookName string
 
 	// Write support. When Guard and Audit are set (and the guard is not forced
 	// read-only), the write tools are registered. Policy defaults if unset.
 	Guard  *gitsafe.Guard
 	Audit  *audit.Log
 	Policy defense.Policy
+}
+
+// writesEnabled reports whether the write tools are available at all: a guard
+// and an audit log are present and the guard is not forced read-only. Tool
+// registration and session_info both call this, so the report cannot claim
+// writes the server will not register.
+func (s *Server) writesEnabled() bool {
+	return s.Guard != nil && s.Audit != nil && !s.Guard.ForcedReadOnly()
 }
 
 // Handler returns the composed HTTP handler.
@@ -92,6 +103,11 @@ func (s *Server) mcpHandler() http.Handler {
 			return nil // invalid scopes -> 400 from the transport
 		}
 		rd := newReader(s.Store, red, ss, s.CorpusPath)
+		rd.identity = id.Name
+		rd.scopes = id.Scopes
+		rd.notebook = s.NotebookName
+		rd.quarantine = !s.Policy.Disabled
+		rd.writesEnabled = s.writesEnabled()
 		if s.Guard != nil {
 			g := s.Guard
 			rd.syncStatus = func() SyncStatus {
@@ -110,7 +126,7 @@ func (s *Server) mcpHandler() http.Handler {
 		srv := buildToolServer(rd)
 		// Register write tools when writes are enabled: a guard + audit log are
 		// present and the guard is not forced read-only.
-		if s.Guard != nil && s.Audit != nil && !s.Guard.ForcedReadOnly() {
+		if s.writesEnabled() {
 			sw := *s // copy so a per-request policy default does not mutate the server
 			if sw.Policy.QuarantineTerm == "" {
 				sw.Policy = defense.DefaultPolicy()

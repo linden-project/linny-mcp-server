@@ -142,6 +142,37 @@ rather than accidental.
 |---------------|-----------|------------------------------------------|
 | `sync_status`  | none | `{degraded, conflicted, conflicts, in_progress, detached, read_only, reason}`; live git-safety state |
 | `verify_index` | none | `{in_sync, corpus_docs, store_docs, missing_from_store, stale_in_store, conflicted}`; served index vs corpus |
+| `session_info` | none | `{server, notebook, caller, status, can_write_now, reason}`; what this connection is |
+
+### Knowing what you may do
+
+`session_info` answers the question a refusal only answers after the fact: what is this
+server, who am I, and can I write right now. It takes no arguments and describes the
+connection, never the corpus, so it carries no counts, no taxonomy or term names, no
+slugs and no filesystem paths.
+
+`caller.can_modify` has three values, because modifying has three outcomes:
+
+| Scope held    | can_modify   | May modify                |
+|---------------|--------------|---------------------------|
+| `write:*`     | `all`        | anything readable         |
+| `write:inbox` | `own-drafts` | only a quarantined draft  |
+| neither       | `none`       | nothing                   |
+
+They are computed from the same predicates the write path enforces with, so the report
+cannot drift from what actually happens.
+
+`can_write_now` is the conjunction of every gate a write must pass: the write tools
+being registered at all, the working tree not being degraded, and the caller holding a
+write scope. Any one of them failing produces the same symptom, so the tool combines
+them rather than leaving that to the caller, and `reason` names the first gate that
+fails. Creating counts as writing: a `write:inbox` token gets `can_write_now: true`
+with a reason saying existing documents need `write:*`.
+
+Reporting a caller its own scopes discloses nothing. It holds the token already, and
+it can enumerate its scopes today by attempting writes and reading the refusals. The
+only thing the old behaviour achieved was making that discovery expensive and writing
+a `denied` audit entry for every probe.
 
 ## Planned (not yet shipped)
 
@@ -164,4 +195,4 @@ Recorded so names are reserved and stable when implemented:
   stringifying writer) and the `add_term` / `remove_term` tools.
 - **v1.2**: `update_doc` (anchored body edits, guarded whole-body replacement);
   `get_doc` gained `content_hash` and `redacted`.
-- **v1.3**: `starred_docs`.
+- **v1.3**: `starred_docs` and `session_info`.

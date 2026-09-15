@@ -6,6 +6,16 @@ semantic versioning once it leaves alpha.
 
 ## [Unreleased]
 
+### Added
+- **`session_info` MCP tool** reporting the server version, the notebook, the caller's
+  identity and scopes, and a single `can_write_now` verdict with the reason it is false.
+  Until now the only place a caller's scopes were reported was the placeholder handler
+  used when no notebook is attached, so an agent could not tell a missing scope from a
+  degraded tree from a read-only server: all three surface as "I cannot write".
+- **`starred_docs` MCP tool** listing the documents flagged `starred: true`, with
+  titles, ordered by title. The flag was indexed on every build and read by nothing, so
+  `linny.vim` could show your starred notes and an agent could not ask for them.
+
 ## [0.1.0] - 2026-09-15
 
 ### Added
@@ -39,9 +49,6 @@ semantic versioning once it leaves alpha.
 - **Branding**: a Linnaeus-mascot hero banner in the README (with the "Connect.
   Classify. Empower." tagline and a MIT license badge), and a `docs/brand/` reference
   recording the palette and taglines.
-- **`starred_docs` MCP tool** listing the documents flagged `starred: true`, with
-  titles, ordered by title. The flag was indexed on every build and read by nothing, so
-  `linny.vim` could show your starred notes and an agent could not ask for them.
 - **`update_doc` MCP tool** for changing an existing document's body, which until now
   could only be appended to. Anchored edits (`old`/`new`, exactly one match) are the
   default; whole-body replacement needs `base_hash` and an unredacted document. Front

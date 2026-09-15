@@ -105,6 +105,18 @@ func parseSelector(segs []string) (selector, error) {
 	}
 }
 
+// CanReadAny reports whether the scope grants any read at all. Deny-by-default
+// means a token with no read rule reads nothing, which is worth being able to
+// state without running a query.
+func (ss *ScopeSet) CanReadAny() bool {
+	for _, r := range ss.rules {
+		if r.action == ActionRead && !r.deny {
+			return true
+		}
+	}
+	return false
+}
+
 // CanWriteAll reports whether the scope grants unrestricted write (write:*).
 func (ss *ScopeSet) CanWriteAll() bool {
 	for _, r := range ss.rules {

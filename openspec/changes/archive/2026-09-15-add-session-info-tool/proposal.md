@@ -48,8 +48,8 @@ running" without someone reading the service logs.
                 "scopes": ["read:*", "write:inbox"],
                 "can_read": true, "can_create": true, "can_modify": "own-drafts" },
   "status":   { "degraded": false, "read_only": false, "reason": "" },
-  "can_write_now": false,
-  "reason": "token has write:inbox, not write:*; existing documents cannot be modified"
+  "can_write_now": true,
+  "reason": "this token may create quarantined drafts and modify only those; existing documents need write:*"
 }
 ```
 
@@ -78,7 +78,9 @@ running" without someone reading the service logs.
   `internal/mcp/tools.go` (result types, handler, registration), `docs/tools.md`.
 - No new dependencies, no schema change, no authorization vocabulary change, and no
   change to any existing tool's behaviour or output.
-- `internal/authz` gains nothing: the tool consumes predicates that already exist.
+- `internal/authz` gains one predicate, `CanReadAny`, mirroring the existing write
+  predicates so `can_read` is stated from the scope rules rather than inferred by
+  running a query. The write predicates it consumes already exist.
 
 ## Non-Goals
 
