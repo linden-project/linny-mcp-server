@@ -83,6 +83,13 @@ func registerWriteTools(srv *mcpsdk.Server, w *writer) {
 		Description: "Archive a document (front-matter state transition, sets archived: true).",
 	}, w.archive)
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name: "update_doc",
+		Description: "Change an existing document's body. Prefer the anchored form: " +
+			"`old` must occur exactly once and is replaced by `new`. Whole-body " +
+			"replacement via `body` needs a `base_hash` from get_doc and is refused " +
+			"for a document whose read body was redacted. Front matter is never touched.",
+	}, w.updateDoc)
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name: "add_term",
 		Description: "Add a term to a document's taxonomy key (idempotent). " +
 			"Creates the key as a list when absent and promotes a single value to a list.",
@@ -121,6 +128,18 @@ type setFMIn struct {
 	Key   string `json:"key"`
 	Value any    `json:"value" jsonschema:"a string, bool, number, null, or a list of those"`
 }
+type updateDocIn struct {
+	Slug string `json:"slug" jsonschema:"the document slug/filename"`
+	Old  string `json:"old,omitempty" jsonschema:"anchored mode: text to replace, which must occur exactly once in the body"`
+	New  string `json:"new,omitempty" jsonschema:"anchored mode: the replacement for old"`
+	Body string `json:"body,omitempty" jsonschema:"whole-body mode: the complete replacement body; requires base_hash and an unredacted document"`
+	// BaseHash is get_doc's content_hash. Optional when anchored (the
+	// exactly-one-match rule is itself an integrity check), required to replace
+	// a whole body.
+	BaseHash   string `json:"base_hash,omitempty" jsonschema:"content_hash from get_doc"`
+	AllowEmpty bool   `json:"allow_empty,omitempty" jsonschema:"permit the write to leave the body empty"`
+}
+
 type termIn struct {
 	Slug     string `json:"slug" jsonschema:"the document slug/filename"`
 	Taxonomy string `json:"taxonomy" jsonschema:"the taxonomy front-matter key"`
@@ -213,6 +232,96 @@ func (w *writer) archive(_ context.Context, _ *mcpsdk.CallToolRequest, in archiv
 	return w.editFM("archive", in.Slug, func(m *yaml.Node) (bool, []string, error) {
 		return setMappingValue(m, "archived", boolNode(true)), nil, nil
 	})
+}
+
+// updateDoc changes a document's body. The invariant it enforces is that an
+// agent may only replace text it has genuinely seen: get_doc returns a redacted,
+// delimiter-wrapped body, so the text a caller holds is not necessarily what is
+// on disk. Anchored edits prove it by matching real file content and fail closed
+// when they cannot; whole-body replacement has to prove it up front.
+func (w *writer) updateDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in updateDocIn) (*mcpsdk.CallToolResult, writeOut, error) {
+	anchored, whole := in.Old != "", in.Body != ""
+	if anchored == whole {
+		return w.deny("update_doc", in.Slug,
+			"supply either old/new (anchored, preferred) or body (whole-body), not both and not neither")
+	}
+
+	raw, hash, front, ok, err := w.loadForEdit(in.Slug)
+	if err != nil || !ok {
+		return w.notFoundOrErr("update_doc", in.Slug, err)
+	}
+	if err := w.ensureModify(front); err != nil {
+		return w.deny("update_doc", in.Slug, err.Error())
+	}
+	if err := w.guard.EnsureWritable(); err != nil {
+		return w.deny("update_doc", in.Slug, err.Error())
+	}
+	// Splitting and reassembling around the same front-matter text is what keeps
+	// the block byte-identical: a body rewrite can never touch classification.
+	fmText, body, err := splitFrontMatter(raw)
+	if err != nil {
+		return nil, writeOut{}, err
+	}
+	if in.BaseHash != "" && in.BaseHash != hash {
+		return w.deny("update_doc", in.Slug,
+			"stale write: the document changed since base_hash was taken; re-read it and retry")
+	}
+
+	var newBody string
+	if anchored {
+		newBody, err = spliceAnchored(body, in.Old, in.New)
+	} else {
+		err = w.allowWholeBody(in, body)
+		newBody = in.Body
+	}
+	if err != nil {
+		return w.deny("update_doc", in.Slug, err.Error())
+	}
+	if strings.TrimSpace(newBody) == "" && !in.AllowEmpty {
+		return w.deny("update_doc", in.Slug,
+			"the resulting body would be empty; pass allow_empty to do that deliberately")
+	}
+
+	newContent := "---\n" + fmText + "---\n" + newBody
+	if err := gitsafe.WriteIfUnchanged(w.docPath(in.Slug), []byte(newContent), hash, 0o644); err != nil {
+		return nil, writeOut{}, err
+	}
+	return w.finishAudit("update_doc", in.Slug, newContent, unifiedDiff(body, newBody), nil, true)
+}
+
+// spliceAnchored replaces the single occurrence of old. Neither refusal changes
+// the document: an anchor that crosses redacted text cannot match on-disk
+// content, so the dangerous case degrades to a refusal rather than corruption.
+func spliceAnchored(body, old, replacement string) (string, error) {
+	switch n := strings.Count(body, old); n {
+	case 1:
+		return strings.Replace(body, old, replacement, 1), nil
+	case 0:
+		return "", fmt.Errorf("anchor not found in the document body; re-read the document and " +
+			"take the anchor from its current text (an anchor covering redacted content never matches)")
+	default:
+		return "", fmt.Errorf("anchor is ambiguous: %d matches; include more surrounding "+
+			"context so it identifies exactly one place", n)
+	}
+}
+
+// allowWholeBody reports whether a whole-body replacement is provably safe: the
+// caller read this exact file, nothing was hidden from them, and they are not
+// echoing the read response's framing back into the corpus.
+func (w *writer) allowWholeBody(in updateDocIn, body string) error {
+	if in.BaseHash == "" {
+		return fmt.Errorf("whole-body replacement requires base_hash (get_doc's content_hash); " +
+			"or use old/new, which does not")
+	}
+	if _, n := w.red.Redact(body); n > 0 {
+		return fmt.Errorf("whole-body replacement is unavailable for this document: part of it is " +
+			"redacted on read, so the text you hold is not what is stored; use old/new instead")
+	}
+	if strings.Contains(in.Body, defense.BodyBegin) || strings.Contains(in.Body, defense.BodyEnd) {
+		return fmt.Errorf("the submitted body carries the data-delimiter fence from a read " +
+			"response; send the body text only")
+	}
+	return nil
 }
 
 func (w *writer) addTerm(_ context.Context, _ *mcpsdk.CallToolRequest, in termIn) (*mcpsdk.CallToolResult, writeOut, error) {
@@ -350,6 +459,16 @@ func (w *writer) loadForEdit(slug string) (raw, hash string, front map[string]an
 // membership. When wrote is false the corpus is untouched, so there is nothing
 // to reindex and nothing to record as a diff.
 func (w *writer) finish(tool, slug, content string, coined []string, wrote bool) (*mcpsdk.CallToolResult, writeOut, error) {
+	diff := ""
+	if wrote {
+		diff = content
+	}
+	return w.finishAudit(tool, slug, content, diff, coined, wrote)
+}
+
+// finishAudit is finish with an explicit audit payload, so a tool that can
+// record what it changed does not store a second copy of the document.
+func (w *writer) finishAudit(tool, slug, content, diff string, coined []string, wrote bool) (*mcpsdk.CallToolResult, writeOut, error) {
 	if wrote {
 		if err := w.reindex(); err != nil {
 			return nil, writeOut{}, err
@@ -365,10 +484,6 @@ func (w *writer) finish(tool, slug, content string, coined []string, wrote bool)
 		if yaml.Unmarshal([]byte(fmText), &front) == nil {
 			quarantined = w.policy.IsQuarantined(front)
 		}
-	}
-	diff := ""
-	if wrote {
-		diff = content
 	}
 	w.log(tool, slug, diff, "ok")
 	return nil, writeOut{

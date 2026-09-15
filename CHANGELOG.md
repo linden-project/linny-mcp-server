@@ -37,6 +37,12 @@ semantic versioning once it leaves alpha.
 - **Branding** — a Linnaeus-mascot hero banner in the README (with the "Connect.
   Classify. Empower." tagline and a MIT license badge), and a `docs/brand/` reference
   recording the palette and taglines.
+- **`update_doc` MCP tool** for changing an existing document's body, which until now
+  could only be appended to. Anchored edits (`old`/`new`, exactly one match) are the
+  default; whole-body replacement needs `base_hash` and an unredacted document. Front
+  matter is never touched and the audit log records a unified diff.
+- **`get_doc` returns `content_hash` and `redacted`**, so a caller can hold a base
+  version across turns and tell whether whole-body replacement is available.
 - **`add_term` / `remove_term` MCP tools** — idempotent taxonomy membership edits. They
   create the key as a list when absent, promote a single existing value to a list, and
   remove the key when the last term goes. A term with no declared config is still

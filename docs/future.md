@@ -31,6 +31,11 @@ these are implemented; each is a conscious deferral.
 - **Reloading the token file.** `serve` reads it once at startup, so a scope change
   needs a restart. A `SIGHUP` reload (or a watch) would let a deployment update
   scopes without one.
+- **Section-addressed edits.** `update_doc` anchors on literal text. Addressing a
+  region by heading ("replace what is under ## Notes") needs a markdown structure
+  model, and would suit a notebook better than a literal anchor.
+- **Rename / move and delete tools.** `authz` parses `delete:*` and nothing consumes
+  it; `create_doc` derives the slug from the title with no way to rename afterwards.
 - **`delete` and bulk-retag with out-of-band confirmation.** The quarantine policy
   already flags these as confirmation-required; the confirmation channel and the tools
   are not built.

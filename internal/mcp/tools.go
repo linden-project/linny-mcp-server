@@ -142,6 +142,14 @@ type getDocOut struct {
 	Title    string         `json:"title,omitempty"`
 	Props    map[string]any `json:"props,omitempty"`
 	Body     string         `json:"body,omitempty"`
+	// ContentHash is the SHA-256 of the file on disk, to be passed back as
+	// update_doc's base_hash. It tracks the FILE, not the index, which can lag
+	// behind it while the indexer catches up.
+	ContentHash string `json:"content_hash,omitempty"`
+	// Redacted reports that the body above differs from the one on disk because
+	// egress redaction fired. Whole-body replacement is unavailable for such a
+	// document: the text the caller holds is not the text stored.
+	Redacted bool `json:"redacted,omitempty"`
 }
 
 type emptyIn struct{}
@@ -195,8 +203,12 @@ func (rd *reader) getDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in getDoc
 		return nil, getDocOut{Found: false}, nil // denied == missing
 	}
 	title, _ := rd.red.Redact(doc.Title)
-	body, _ := rd.red.Redact(doc.Body)
+	body, redactions := rd.red.Redact(doc.Body)
 	props, _ := rd.red.RedactValue(doc.Props).(map[string]any)
+	// Hash the file rather than the indexed copy, so the value means the same
+	// thing the optimistic write will compare against. A missing file hashes to
+	// "" and simply makes the base version unusable, which is correct.
+	hash, _ := gitsafe.HashFile(filepath.Join(rd.corpusPath, contentDir, in.Slug))
 	return nil, getDocOut{
 		Found:    true,
 		Filename: doc.Filename,
@@ -204,7 +216,9 @@ func (rd *reader) getDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in getDoc
 		Props:    props,
 		// Wrap the (already redacted) body in data delimiters: the corpus is
 		// untrusted input, and this signals "data, not instructions".
-		Body: defense.Delimit(body),
+		Body:        defense.Delimit(body),
+		ContentHash: hash,
+		Redacted:    redactions > 0,
 	}, nil
 }
 

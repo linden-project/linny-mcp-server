@@ -42,14 +42,44 @@ document's resulting term membership.
 |----------------------|--------------------------------------------|------------------------------------------|
 | `create_doc`         | `title`, `front_matter?`, `body?`          | `{ok, slug, quarantined, membership}` — lands in `status: agent-draft`; needs `write:inbox`/`write:*` |
 | `append_to_doc`      | `slug`, `text`                             | `{ok, slug, membership}` |
-| `set_front_matter`   | `slug`, `key`, `value`                     | `{ok, slug, membership, new_terms?}` — order-preserving, typed |
+| `update_doc`         | `slug`, `old`+`new` \| `body`, `base_hash?`, `allow_empty?` | `{ok, slug, membership}`; body only, front matter untouched |
+| `set_front_matter`   | `slug`, `key`, `value`                     | `{ok, slug, membership, new_terms?}`; order-preserving, typed |
 | `unset_front_matter` | `slug`, `key`                              | `{ok, slug, membership}` |
 | `archive`            | `slug`                                     | `{ok, slug, membership}` — sets `archived: true` |
-| `add_term`           | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership, new_terms?}` — idempotent |
-| `remove_term`        | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership}` — idempotent |
+| `add_term`           | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership, new_terms?}`; idempotent |
+| `remove_term`        | `slug`, `taxonomy`, `term`                 | `{ok, slug, membership}`; idempotent |
 
 Modifying an existing document requires `write:*` (or `write:inbox` for a quarantined
 draft).
+
+### Changing a body with `update_doc`
+
+`get_doc` does not return what is on disk: the body is passed through egress
+redaction and wrapped in data delimiters. So `update_doc` enforces one rule, **you
+may only replace text you have genuinely seen**, and offers two ways to prove it.
+
+**Anchored (`old` / `new`), the default.** `old` must occur **exactly once** in the
+on-disk body. Zero matches and several matches are both refused, and neither changes
+the document. An anchor taken from redacted text simply cannot match, so the
+dangerous case degrades into a refusal instead of corrupting the note.
+
+**Whole-body (`body`), the escape hatch.** Allowed only when all three hold:
+
+1. `base_hash` is supplied and still matches the file (use `get_doc`'s `content_hash`);
+2. the stored body produces no redactions, so what you read *was* the truth;
+3. the submitted body carries no data-delimiter fence.
+
+Any failed precondition refuses the write and points back at anchored mode.
+
+Either way the front-matter block is preserved byte-for-byte: a prose rewrite can
+never drop a document's classification, and a body that itself begins with `---` is
+written as body. A resulting empty body is refused unless `allow_empty` is passed.
+The audit log records a unified diff of the body rather than a second copy of the
+document.
+
+`get_doc` returns `content_hash` (hashed from the file, not the index, which can lag
+behind it) and `redacted`, which tells you up front whether whole-body mode is
+available for that document.
 
 ### Front-matter value types
 
@@ -74,7 +104,7 @@ write cleanly and then produce no term membership at all.
 ### Managing terms
 
 `add_term` and `remove_term` are the operations to reach for when classifying a
-document — they avoid a read-modify-write of the whole list against a corpus that may
+document. They avoid a read-modify-write of the whole list against a corpus that may
 be syncing underneath you. Both are idempotent:
 
 - `add_term` creates the key as a list when absent, promotes a single existing value
@@ -83,8 +113,8 @@ be syncing underneath you. Both are idempotent:
   already carrying `acme` is a no-op.
 - `remove_term` drops the term, and removes the key entirely when the last term goes.
 
-A term with no `L2-CONF-TAX-<tax>-TRM-<term>.yml` is still written — terms are
-open-ended — but it is reported back in `new_terms`, so coining a term is visible
+A term with no `L2-CONF-TAX-<tax>-TRM-<term>.yml` is still written, because terms are
+open-ended, but it is reported back in `new_terms`, so coining a term is visible
 rather than accidental.
 
 ## Operational (v1 — shipped)
@@ -113,3 +143,5 @@ Recorded so names are reserved and stable when implemented:
   `unset_front_matter`, `archive`; operational — `sync_status`, `verify_index`.
 - **v1.1**: typed front-matter values (lists and real scalars, replacing the
   stringifying writer) and the `add_term` / `remove_term` tools.
+- **v1.2**: `update_doc` (anchored body edits, guarded whole-body replacement);
+  `get_doc` gained `content_hash` and `redacted`.
