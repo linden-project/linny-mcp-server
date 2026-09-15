@@ -19,6 +19,7 @@
 | `list_taxonomies` | none                                 | `{taxonomies: [string]}`; only taxonomies with a readable document |
 | `terms`           | `taxonomy: string`                   | `{terms: [string]}`; only terms with a readable document |
 | `docs_by_term`    | `taxonomy: string`, `term: string`   | `{docs: [filename]}`; readable members only |
+| `starred_docs`    | none                                 | `{docs: [{filename, title}], scope_filtered}`; ordered by title |
 
 ## History (v1, shipped)
 
@@ -51,6 +52,24 @@ document's resulting term membership.
 
 Modifying an existing document requires `write:*` (or `write:inbox` for a quarantined
 draft).
+
+### Starred documents
+
+`starred_docs` lists the documents whose front matter carries `starred: true`, with
+titles so the result reads as a list rather than a set of filenames. It takes no
+arguments and orders by title.
+
+Scope is applied inside the query, as everywhere else, so a starred document the
+caller may not read is absent and indistinguishable from one that does not exist. The
+result carries no count of what was excluded: that would disclose the existence of
+documents the caller is denied. `scope_filtered` is a constant `true`, a statement
+about the tool rather than a measurement, telling the caller not to report the list as
+exhaustive.
+
+Starred **taxonomies** and **terms** are indexed too (from `starred: true` in the L1
+and L2 config files) but are not exposed. Both are declared in `lindenConfig` rather
+than by documents, so either can exist with no readable members, and exposing them
+needs its own answer to the existence-leak question.
 
 ### Changing a body with `update_doc`
 
@@ -145,3 +164,4 @@ Recorded so names are reserved and stable when implemented:
   stringifying writer) and the `add_term` / `remove_term` tools.
 - **v1.2**: `update_doc` (anchored body edits, guarded whole-body replacement);
   `get_doc` gained `content_hash` and `redacted`.
+- **v1.3**: `starred_docs`.

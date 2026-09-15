@@ -96,6 +96,12 @@ func buildToolServer(rd *reader) *mcpsdk.Server {
 		Description: "List documents changed since a date or revision (readable ones only).",
 	}, rd.changedSince)
 
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name: "starred_docs",
+		Description: "List the documents flagged `starred: true` in front matter, with titles. " +
+			"Results reflect the caller's scopes, so the list may be partial.",
+	}, rd.starredDocs)
+
 	if rd.corpusPath != "" && rd.store != nil {
 		mcpsdk.AddTool(srv, &mcpsdk.Tool{
 			Name:        "verify_index",
@@ -153,6 +159,14 @@ type getDocOut struct {
 }
 
 type emptyIn struct{}
+
+type starredDocsOut struct {
+	Docs []index.DocRef `json:"docs"`
+	// ScopeFiltered is always true: a statement about the tool, not a measurement
+	// of the corpus. It tells the caller not to report the list as exhaustive
+	// without disclosing anything about what its scopes removed.
+	ScopeFiltered bool `json:"scope_filtered"`
+}
 
 type taxonomiesOut struct {
 	Taxonomies []string `json:"taxonomies"`
@@ -220,6 +234,19 @@ func (rd *reader) getDoc(_ context.Context, _ *mcpsdk.CallToolRequest, in getDoc
 		ContentHash: hash,
 		Redacted:    redactions > 0,
 	}, nil
+}
+
+func (rd *reader) starredDocs(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, starredDocsOut, error) {
+	docs, err := rd.store.StarredDocsScoped(rd.scopeSQL, rd.scopeArgs)
+	if err != nil {
+		return nil, starredDocsOut{}, err
+	}
+	out := starredDocsOut{Docs: make([]index.DocRef, 0, len(docs)), ScopeFiltered: true}
+	for _, d := range docs {
+		title, _ := rd.red.Redact(d.Title)
+		out.Docs = append(out.Docs, index.DocRef{Filename: d.Filename, Title: title})
+	}
+	return nil, out, nil
 }
 
 func (rd *reader) listTaxonomies(_ context.Context, _ *mcpsdk.CallToolRequest, _ emptyIn) (*mcpsdk.CallToolResult, taxonomiesOut, error) {

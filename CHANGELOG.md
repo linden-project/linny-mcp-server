@@ -39,6 +39,9 @@ semantic versioning once it leaves alpha.
 - **Branding**: a Linnaeus-mascot hero banner in the README (with the "Connect.
   Classify. Empower." tagline and a MIT license badge), and a `docs/brand/` reference
   recording the palette and taglines.
+- **`starred_docs` MCP tool** listing the documents flagged `starred: true`, with
+  titles, ordered by title. The flag was indexed on every build and read by nothing, so
+  `linny.vim` could show your starred notes and an agent could not ask for them.
 - **`update_doc` MCP tool** for changing an existing document's body, which until now
   could only be appended to. Anchored edits (`old`/`new`, exactly one match) are the
   default; whole-body replacement needs `base_hash` and an unredacted document. Front

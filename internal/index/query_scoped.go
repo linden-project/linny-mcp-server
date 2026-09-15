@@ -55,6 +55,32 @@ func (s *Store) DocsByTermScoped(taxonomy, term, readableSubquery string, subArg
 		 ORDER BY filename`, args...)
 }
 
+// StarredDocsScoped returns the readable documents flagged `starred: true`,
+// ordered by title. Scope is applied as a predicate like every other scoped
+// query, so a starred document the caller may not read is indistinguishable
+// from one that does not exist: no count of the excluded rows is produced, and
+// producing one would need a second, deliberately unscoped query.
+func (s *Store) StarredDocsScoped(readableSubquery string, subArgs []any) ([]DocRef, error) {
+	rows, err := s.db.Query(
+		`SELECT filename, title FROM docs d
+		 WHERE d.starred = 1 AND d.filename IN (`+readableSubquery+`)
+		 ORDER BY title, filename`, subArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []DocRef
+	for rows.Next() {
+		var d DocRef
+		if err := rows.Scan(&d.Filename, &d.Title); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
 // ListTaxonomiesScoped returns only taxonomies that have at least one readable
 // document, so a fully-denied taxonomy's existence is not leaked.
 func (s *Store) ListTaxonomiesScoped(readableSubquery string, subArgs []any) ([]string, error) {

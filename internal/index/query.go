@@ -14,6 +14,13 @@ type SearchHit struct {
 	Score    float64 `json:"score"` // FTS5 bm25; lower is more relevant
 }
 
+// DocRef names a document without its content: enough to list documents for a
+// reader without a second lookup per row.
+type DocRef struct {
+	Filename string `json:"filename"`
+	Title    string `json:"title"`
+}
+
 // Doc is a single document as returned by GetDoc.
 type Doc struct {
 	Filename string         `json:"filename"`
