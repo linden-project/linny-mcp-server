@@ -6,6 +6,8 @@ semantic versioning once it leaves alpha.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-18
+
 ### Added
 - **`session_info` MCP tool** reporting the server version, the notebook, the caller's
   identity and scopes, and a single `can_write_now` verdict with the reason it is false.
