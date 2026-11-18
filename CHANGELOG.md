@@ -6,6 +6,8 @@ semantic versioning once it leaves alpha.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-18
+
 ### Changed
 - **The index engine is an external module.** Parsing, the taxonomy graph, JSON emit,
   the SQLite store, `verify`, and `lindexer` now come from
