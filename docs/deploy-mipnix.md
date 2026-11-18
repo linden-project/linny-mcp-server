@@ -78,3 +78,11 @@ corpus.
 The existing external git-sync keeps each `corpusPath` in sync on all machines,
 including this host. `linny-mcp` never takes ownership of git; it only inspects the
 working tree and degrades to read-only when it is conflicted.
+
+## Indexer
+
+`lindexer` is no longer built by this flake. It comes from
+[`github.com/linden-project/linden-index`](https://github.com/linden-project/linden-index)
+as a released binary or as a second flake input. mipnix should add that input
+alongside `linny-mcp` and put `lindexer` on `PATH` for the machines that index or
+verify notebooks.

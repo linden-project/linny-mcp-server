@@ -9,9 +9,9 @@ downstream as a Nix flake input in `github.com/mipmip/mipnix`.
 
 Core properties:
 - Its **own** disposable index (SQLite + FTS5), never committed to git.
-- A **standalone indexer** package/CLI intended to eventually replace the current
-  Hugo-based indexer ("Carl").
-- A written **Linden Index Specification** produced *before* the indexer code.
+- An **external index engine** (`github.com/linden-project/linden-index`) providing the
+  `index` and `corpus` packages and the `lindexer` CLI.
+- The **Linden Index Specification** lives in that repository.
 - **Static bearer token** authentication (explicitly *not* OAuth).
 - **Read-only degradation** whenever the git working tree is conflicted.
 - A Nix flake exporting a package, a NixOS module with a hardened systemd unit,
@@ -34,30 +34,30 @@ Core properties:
 
 ### Code Style
 - Standard Go formatting (`gofmt`/`goimports`), vetted by `golangci-lint`.
-- The indexer is its own package with its own CLI entrypoint (`cmd/lindexer`),
-  importable by the server but runnable alone.
+- The index engine is an external module: `github.com/linden-project/linden-index`.
+  Never copy its code into this repo; bump the module version instead.
 - Authentication is behind an `Authenticator` interface; `StaticTokenAuthenticator`
   is the only implementation for v1. An `OIDCAuthenticator` may be added later
   without rebuilding anything — do NOT build it now.
 
 ### Architecture
 - `cmd/linny-mcp` — the MCP server binary (+ `gen-token` helper).
-- `cmd/lindexer` — the standalone indexer CLI (`build`, `watch`, `verify`).
-- `internal/index` — front-matter parsing, taxonomy graph, SQLite/FTS5, JSON emit.
+- `linden-index` (external) — front-matter parsing, taxonomy graph, SQLite/FTS5, JSON
+  emit, and the `lindexer` CLI.
 - `internal/auth` — Authenticator interface + static bearer tokens.
 - `internal/authz` — scopes, deny-by-default, SQL-level filtering.
 - `internal/gitsafe` — working-tree inspection, degraded read-only mode, atomic writes.
 - `internal/redact` — gitleaks-style egress secret redaction on all tool responses.
 - `internal/mcp` — MCP tool surface wiring.
 - `nix/` — flake modules (package, nixosModule, overlay, devShell, checks).
-- `docs/` — `linden-index-spec.md`, `tools.md`, `future.md`.
+- `docs/` — `tools.md`, `future.md`, deployment and testing notes.
 - `testdata/synthetic-corpus/` — generated synthetic notebook for tests.
 
 ### Testing Strategy
 - Thorough unit + e2e tests are non-negotiable. Every OpenSpec change ships tests.
 - **Generate a synthetic corpus** (a few thousand realistic notes). NEVER point any
   build, test, or tool at the real private `secondbrain` repo.
-- Required test classes: JSON-index round-trip vs Hugo; auth timing-safety +
+- Required test classes: index contract against the `linden-index` package; auth timing-safety +
   no-information-leak 401; scope intersection (the `work`+`health` deny case);
   degraded-mode write refusal on a conflicted tree; concurrency (two writers, one
   stale hash); a tested backup/restore path.
@@ -102,8 +102,9 @@ Core properties:
   without an explicit override flag. TLS is terminated upstream (Hetzner proxy).
 
 ## Decisions already made — do not relitigate
-Go; `modernc.org/sqlite`; SQLite+FTS5 disposable index; server builds its own index
-(Hugo JSON output is the *reference* implementation, diffed via `verify_index`);
+Go; `modernc.org/sqlite`; SQLite+FTS5 disposable index; the server builds its own index
+through the `linden-index` module (Hugo JSON output is the *reference* implementation,
+verified in that repository);
 static bearer tokens (no OAuth/OIDC/Zitadel); existing external git-sync stays and
 the server never takes ownership of git; embeddings (if ever) local-only and out of
 scope for v1; plain-nix flake (no flake-utils).
@@ -113,7 +114,7 @@ scope for v1; plain-nix flake (no flake-utils).
   / NixOS option (`publicHostname`), defaulting unset. No hostname is hardcoded.
 - **Multi-notebook support is designed in now.** Config models N notebooks (each with
   its own corpus path, state dir, and git-safety guard) even though v1 may serve one.
-- Spec version resolved to **linden-index-spec v0.3.0**.
+- The index format and its specification are owned by **linden-index**.
 
 ## Open questions (surface, don't guess)
 1. Final MCP tool names (tool names are an API — version them in `docs/tools.md`).

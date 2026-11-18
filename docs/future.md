@@ -6,7 +6,7 @@ these are implemented; each is a conscious deferral.
 ## Indexer / format
 
 - **Hugo/index drift is a known, surfaced divergence.** `lindexer verify --hugo`
-  runs the real Hugo reference (vendored layouts in `internal/hugoref`) and diffs ours
+  runs the real Hugo reference (vendored layouts in the `hugoref` package of `linden-index`) and diffs ours
   against it; every load-bearing file matches, and the one accepted divergence is the
   L1 term-config index. Hugo emits `{}` for the singular≠plural taxonomies (`tag`,
   `project`) where its data-key lookup fails, while ours embeds the L2 config. A future
@@ -17,7 +17,7 @@ these are implemented; each is a conscious deferral.
   (cheap at ~5k notes). A watch mode would update incrementally. (Epic E0204.)
 - **Multi-content-dir support.** The tools assume `content/`; resolve it from the
   notebook config instead.
-- **Open questions in the index spec** (`docs/linden-index-spec.md` §13): nested vs.
+- **Open questions in the index spec** (the specification in `linden-index` §13): nested vs.
   flat filenames, title-less/invalid-front-matter handling, the vestigial per-page
   JSON, multi-valued taxonomy semantics, task-count regex, and the source of the
   taxonomy list.

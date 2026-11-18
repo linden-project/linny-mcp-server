@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linden-project/linny-mcp-server/internal/corpus"
-	"github.com/linden-project/linny-mcp-server/internal/index"
+	"github.com/linden-project/linden-index/corpus"
+	"github.com/linden-project/linden-index/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
 

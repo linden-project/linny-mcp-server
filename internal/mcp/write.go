@@ -13,11 +13,11 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"gopkg.in/yaml.v3"
 
+	"github.com/linden-project/linden-index/index"
 	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/authz"
 	"github.com/linden-project/linny-mcp-server/internal/defense"
 	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
-	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )
 

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linden-project/linden-index/index"
 	"github.com/linden-project/linny-mcp-server/internal/alert"
 	"github.com/linden-project/linny-mcp-server/internal/audit"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
@@ -25,7 +26,6 @@ import (
 	"github.com/linden-project/linny-mcp-server/internal/config"
 	"github.com/linden-project/linny-mcp-server/internal/defense"
 	"github.com/linden-project/linny-mcp-server/internal/gitsafe"
-	"github.com/linden-project/linny-mcp-server/internal/index"
 	"github.com/linden-project/linny-mcp-server/internal/mcp"
 	"github.com/linden-project/linny-mcp-server/internal/redact"
 )

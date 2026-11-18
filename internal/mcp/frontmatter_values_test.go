@@ -11,8 +11,8 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/linden-project/linden-index/index"
 	"github.com/linden-project/linny-mcp-server/internal/auth"
-	"github.com/linden-project/linny-mcp-server/internal/index"
 )
 
 // putDoc writes a document with known front matter and reindexes, so the write

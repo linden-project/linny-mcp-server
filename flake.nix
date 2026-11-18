@@ -40,7 +40,6 @@
               pkgs.go
               pkgs.gopls
               pkgs.golangci-lint
-              pkgs.hugo # needed by the indexer `verify` path (diff vs Hugo)
               pkgs.gum # scripts/release.sh bump chooser
               pkgs.gh # scripts/release.sh cuts the GitHub release
             ];
@@ -75,8 +74,8 @@
           # below the 70% floor. git is on PATH so the git-backed tests run.
           coverage = pkgs.linny-mcp.overrideAttrs (old: {
             pname = "linny-mcp-coverage";
-            # git for the history/gitsafe tests; hugo for the verify round-trip.
-            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.git pkgs.hugo ];
+            # git for the history/gitsafe tests.
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.git ];
             doCheck = false;
             buildPhase = ''
               runHook preBuild
@@ -87,7 +86,7 @@
               awk -v t="$total" 'BEGIN { if (t+0 < 70.0) { printf "FAIL: total coverage %s%% is below the 70%% gate\n", t; exit 1 } }'
 
               echo "core package coverage (floor 80%):"
-              core="index authz auth redact defense gitsafe config corpus"
+              core="authz auth redact defense gitsafe config"
               coreFail=0
               for p in $core; do
                 pct=$(go test ./internal/$p/ -cover 2>/dev/null | sed -n 's/.*coverage: \([0-9.]*\)%.*/\1/p')

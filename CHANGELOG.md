@@ -6,6 +6,13 @@ semantic versioning once it leaves alpha.
 
 ## [Unreleased]
 
+### Changed
+- **The index engine is an external module.** Parsing, the taxonomy graph, JSON emit,
+  the SQLite store, `verify`, and `lindexer` now come from
+  `github.com/linden-project/linden-index`. The server builds only the `linny-mcp`
+  binary. `lindexer` and `gen-corpus` are released and documented there, and the Hugo
+  round-trip check left `nix flake check`.
+
 ## [0.2.0] - 2026-09-18
 
 ### Added

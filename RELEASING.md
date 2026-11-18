@@ -9,10 +9,17 @@ prebuilt binaries, no tag-triggered Actions.
 `VERSION` (repo root) holds the current version. `flake.nix` reads it
 (`version = lib.fileContents ./VERSION`) and stamps it into the binary via the
 package `-ldflags` → `internal/buildinfo.Version`, which is what the `version`
-subcommand, the `serve` banner, `_indexer_info.json`'s `product_version`, and the MCP
-server's advertised implementation version all report. **Bump only `VERSION`**, never
+subcommand, the `serve` banner, and the MCP server's advertised implementation version
+all report. `_indexer_info.json` carries the `linden-index` version, not this one. **Bump only `VERSION`**, never
 hardcode a version anywhere else. (Dev builds via `go run` report `0.0.0-dev`; only Nix
 builds are stamped.)
+
+## Indexer releases
+
+`lindexer` is released from
+[`linden-index`](https://github.com/linden-project/linden-index) with goreleaser,
+which publishes static binaries. This repository never publishes binaries and never
+tags the indexer; bump the module version in `go.mod` to pick up engine changes.
 
 ## Cutting a release
 

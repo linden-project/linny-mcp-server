@@ -44,9 +44,10 @@ input in [`mipnix`](https://github.com/mipmip/mipnix).
 - **Its own disposable index** (SQLite + FTS5), built from front matter, kept in
   `stateDir`. It is a cache: **never committed to git**, and deleting `stateDir` and
   rebuilding is always a valid recovery step.
-- **A standalone indexer** (`cmd/lindexer`) that parses YAML front matter, builds the
-  taxonomy graph, and emits the JSON index files that `linny.vim` already consumes,
-  intended to eventually replace the Hugo indexer ("Carl").
+- **A shared index engine.** Parsing, the taxonomy graph, and the JSON index tree that
+  `linny.vim` consumes live in [`linden-index`](https://github.com/linden-project/linden-index),
+  which also ships the `lindexer` CLI. This server imports its `index` and `corpus`
+  packages.
 - **Static bearer-token auth** (explicitly *not* OAuth), behind an `Authenticator`
   interface so OIDC can be added later without a rewrite.
 - **Read-only degradation**: whenever the git working tree is conflicted or
@@ -59,8 +60,7 @@ input in [`mipnix`](https://github.com/mipmip/mipnix).
 | Path | Purpose |
 |-------------------------|-------------------------------------------------------|
 | `cmd/linny-mcp`         | The MCP server binary (+ `gen-token` helper).         |
-| `cmd/lindexer`          | The standalone indexer CLI (`build`/`watch`/`verify`).|
-| `internal/index`        | Front-matter parsing, taxonomy graph, SQLite/FTS5, JSON emit. |
+| `linden-index` (module) | Front-matter parsing, taxonomy graph, SQLite/FTS5, JSON emit, and the `lindexer` CLI. |
 | `internal/auth`         | `Authenticator` interface + static bearer tokens.     |
 | `internal/authz`        | Deny-by-default scopes, SQL-level filtering.          |
 | `internal/gitsafe`      | Working-tree inspection, degraded mode, atomic writes.|
@@ -68,13 +68,13 @@ input in [`mipnix`](https://github.com/mipmip/mipnix).
 | `internal/mcp`          | The versioned MCP tool surface.                       |
 | `internal/config`       | Server configuration (designed for N notebooks).      |
 | `nix/`                  | Flake package + NixOS module.                          |
-| `docs/`                 | `linden-index-spec.md`, `tools.md`, `future.md`.      |
+| `docs/`                 | `tools.md`, `future.md`, deployment and testing notes. |
 | `openspec/`             | Change proposals and specs (spec-driven development). |
 
 ## Development
 
 ```sh
-nix develop          # Go toolchain, golangci-lint, hugo
+nix develop          # Go toolchain, golangci-lint
 go build ./...
 go test ./...
 nix flake check      # gates go test + golangci-lint for both supported systems

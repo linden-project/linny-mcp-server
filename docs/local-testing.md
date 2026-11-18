@@ -8,24 +8,28 @@ A guided local run against a **throwaway test corpus**. Never point this at the 
 Everything you need is in the dev shell:
 
 ```sh
-nix develop        # Go, golangci-lint, hugo (for verify)
+nix develop        # Go, golangci-lint
 ```
 
-(Or use a host Go ≥ 1.24 and `hugo` for the `verify --hugo` step.)
+(Or use a host Go ≥ 1.24.)
 
-Build the binaries once:
+The indexer and corpus generator come from
+[`linden-index`](https://github.com/linden-project/linden-index). Install them with
+`go install` or from a release, and add `hugo` only if you want the `verify --hugo`
+step:
 
 ```sh
+go install github.com/linden-project/linden-index/cmd/lindexer@v0.2.0
+go install github.com/linden-project/linden-index/cmd/gen-corpus@v0.2.0
+
 go build -o bin/linny-mcp ./cmd/linny-mcp
-go build -o bin/lindexer  ./cmd/lindexer
-go build -o bin/gen-corpus ./cmd/gen-corpus
 ```
 
 ## 1. Make a test notebook
 
 ```sh
 DEMO=/tmp/linny-demo; rm -rf $DEMO
-./bin/gen-corpus --dir $DEMO --count 30 --seed 1        # synthetic, deterministic
+gen-corpus --dir $DEMO --count 30 --seed 1        # synthetic, deterministic
 ( cd $DEMO && git init -q && git add -A \
     && git -c user.email=you@example.com -c user.name=you commit -qm "test corpus" )
 ```
@@ -38,16 +42,16 @@ corpus (needed for the Hugo `verify` step, because Hugo aborts on malformed fron
 
 ```sh
 # Build the index: linny.vim-compatible JSON + a SQLite/FTS5 store in the state dir
-./bin/lindexer build --corpus $DEMO --index $DEMO/lindenIndex --state-dir $DEMO/state
+lindexer build --corpus $DEMO --index $DEMO/lindenIndex --state-dir $DEMO/state
 
 # Full-text search the store
-./bin/lindexer search --state-dir $DEMO/state --limit 5 "backup"
+lindexer search --state-dir $DEMO/state --limit 5 "backup"
 
 # Prove our JSON matches the Hugo reference (needs hugo + a clean corpus)
-./bin/lindexer verify --corpus $DEMO --hugo
+lindexer verify --corpus $DEMO --hugo
 
 # Watch: rebuild automatically on change (Ctrl-C to stop)
-./bin/lindexer watch --corpus $DEMO --state-dir $DEMO/state
+lindexer watch --corpus $DEMO --state-dir $DEMO/state
 ```
 
 Poke around `$DEMO/lindenIndex/*.json` to see the emitted index.
