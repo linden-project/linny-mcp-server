@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change dev-workflow-tooling. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: CHANGELOG with an Unreleased section
 
 The repository SHALL maintain a `CHANGELOG.md` in Keep a Changelog format with a
@@ -45,9 +47,9 @@ without archiving, committing, or pushing.
 ### Requirement: Coverage gate enforces a core floor
 
 The `coverage` flake check SHALL fail unless total statement coverage is ≥70% AND each
-core package (`internal/index`, `internal/authz`, `internal/auth`, `internal/redact`,
-`internal/defense`, `internal/gitsafe`, `internal/config`, `internal/corpus`) has ≥80%
-own coverage.
+core package still owned by this module (`internal/authz`, `internal/auth`,
+`internal/redact`, `internal/defense`, `internal/gitsafe`, `internal/config`) has ≥80%
+own coverage. Packages that moved to `linden-index` are gated in that repository.
 
 #### Scenario: A core package below 80% fails the gate
 
@@ -58,4 +60,3 @@ own coverage.
 
 - **WHEN** total coverage is ≥70% and every core package is ≥80%
 - **THEN** the coverage check passes
-

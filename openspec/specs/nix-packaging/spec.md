@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change scaffold-repo-and-flake. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Plain-nix flake without flake-utils
 
 The repository SHALL provide a `flake.nix` that enumerates supported systems
@@ -24,33 +26,39 @@ iteration library.
 
 ### Requirement: Package built via buildGoModule
 
-The flake SHALL build the binaries via `buildGoModule` so cross-compilation and
-packaging stay cgo-free (consistent with the `modernc.org/sqlite` decision).
+The flake SHALL build the MCP server via `buildGoModule` so cross-compilation and
+packaging stay cgo-free (consistent with the `modernc.org/sqlite` decision). The
+package SHALL contain the `linny-mcp` binary only; `lindexer` ships from the
+`linden-index` flake.
 
 #### Scenario: Package builds
 
 - **WHEN** `nix build .#linny-mcp` is run on a supported system
 - **THEN** it produces a `result/bin/linny-mcp` executable
+- **AND** `result/bin/lindexer` is absent
 
 ### Requirement: Development shell
 
 The flake SHALL export `devShells.default` providing the Go toolchain,
-`golangci-lint`, and `hugo` (required later for the index verify path).
+`golangci-lint`, and `git` (the test suite shells out to git). Hugo SHALL NOT be
+required, because the Hugo reference comparison moved to `linden-index`.
 
 #### Scenario: Dev shell provides tools
 
 - **WHEN** `nix develop` is entered
-- **THEN** `go`, `golangci-lint`, and `hugo` are all on `PATH`
+- **THEN** `go`, `golangci-lint`, and `git` are all on `PATH`
 
 ### Requirement: Flake checks gate the build
 
-The flake SHALL export `checks.<system>` that run `go test ./...` and
-`golangci-lint`, so `nix flake check` fails when tests or lint fail.
+The flake SHALL export `checks.<system>` that run `go test ./...` with the coverage
+gate and `golangci-lint`, so `nix flake check` fails when tests, coverage, or lint
+fail. The Hugo round-trip check SHALL NOT run here.
 
 #### Scenario: Checks run tests and lint
 
 - **WHEN** `nix flake check` is run
-- **THEN** it executes the Go test suite and the linter, and fails if either fails
+- **THEN** it executes the Go test suite with the coverage gate and the linter, and
+  fails if either fails
 
 ### Requirement: Overlay export
 
@@ -86,4 +94,3 @@ config. Secrets SHALL NOT appear in any option: `tokensFile` remains a path.
 - **WHEN** `ntfyTopicURL` is set and the module is evaluated
 - **THEN** the generated config JSON carries that URL and no token value appears in
   any option
-

@@ -21,7 +21,7 @@
 - [x] 3.1 Remove `cmd/lindexer`.
 - [x] 3.2 Remove `internal/index` and `internal/hugoref`.
 - [x] 3.3 Remove tests and fixtures that only served the moved packages.
-- [ ] 3.4 Remove the specs owned by `linden-index` from `openspec/specs` when the
+- [x] 3.4 Remove the specs owned by `linden-index` from `openspec/specs` when the
       change is archived.
 
 ## 4. Packaging and versioning
